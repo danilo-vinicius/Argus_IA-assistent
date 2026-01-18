@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Code Vault{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <h1>Code Vault 💾</h1>
+        <p class="subtitle">Repositório de Inteligência Técnica</p>
+    </div>
+
+    <div class="vault-input-area">
+        <div class="input-row">
+            <input type="text" id="noteTitle" class="input-fancy" placeholder="Título do Snippet (ex: Conexão SQL Server)">
+            <select id="noteLang" class="input-fancy" style="max-width: 150px;">
+                <option value="python">Python</option>
+                <option value="sql">SQL</option>
+                <option value="dax">DAX</option>
+                <option value="bash">Terminal</option>
+                <option value="powerquery">M (Power Query)</option>
+                <option value="plaintext">Texto</option>
+            </select>
+            <button class="btn-primary" onclick="saveSnippet()">Salvar</button>
+        </div>
+        <textarea id="noteBody" class="code-input" placeholder="Cole seu código aqui..."></textarea>
+    </div>
+
+    <div class="vault-list">
+        {% for n in notas %}
+        <div class="snippet-card">
+            <div class="snippet-header">
+                <div class="snippet-info">
+                    <span class="snippet-lang">{{ n.categoria }}</span>
+                    <span class="snippet-name">{{ n.titulo }}</span>
+                </div>
+                <button class="btn-icon" onclick="copyToClipboard(`{{ n.conteudo }}`, this)" title="Copiar">📋</button>
+            </div>
+            <div class="snippet-body">
+                <pre><code class="language-{{ n.categoria }}">{{ n.conteudo }}</code></pre>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Ativa o highlight.js nesta página específica
+    document.querySelectorAll('pre code').forEach((block) => {
+        hljs.highlightElement(block);
+    });
+</script>
+{% endblock %}

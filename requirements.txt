@@ -1,0 +1,12 @@
+flask
+flask-socketio
+python-dotenv
+langchain-google-genai
+langchain-ollama
+langchain-chroma
+langchain-community
+langchain-core
+pymupdf
+AppOpener
+chromadb
+streamlit

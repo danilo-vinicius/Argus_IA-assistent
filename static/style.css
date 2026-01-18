@@ -1,0 +1,692 @@
+:root {
+    --bg-app: #121212;         /* Fundo Geral */
+    --bg-card: #1e1e1e;        /* Cartões */
+    --bg-hover: #2a2a2a;       /* Hover */
+    --accent: #3b82f6;         /* Azul Profissional */
+    --text-main: #e0e0e0;      /* Branco suave */
+    --text-muted: #a0a0a0;     /* Cinza texto */
+    --border: #333333;         /* Bordas */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    background-color: var(--bg-app);
+    color: var(--text-main);
+    font-family: 'Inter', sans-serif;
+    height: 100vh;
+    overflow: hidden; /* Importante para o layout fixo */
+}
+
+
+
+/* --- LAYOUT GRID --- */
+.content-wrapper {
+    flex: 1; /* Ocupa o resto da tela */
+    overflow: hidden; /* Cada página gerencia seu scroll */
+    position: relative;
+}
+
+.grid-container {
+    height: 100%; /* Agora é 100% do wrapper, não da tela */
+    /* O resto do grid mantém igual */
+}
+
+.app-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    background-color: var(--bg-app);
+}
+
+/* --- NAVEGAÇÃO LATERAL (NAVBAR) --- */
+.main-nav {
+    width: 60px; /* Barra fina */
+    background-color: #0a0a0a;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 0;
+    z-index: 100;
+}
+
+.nav-logo {
+    font-weight: 700;
+    color: var(--accent);
+    font-size: 1.5rem;
+    margin-bottom: 40px;
+    border: 2px solid var(--accent);
+    width: 35px; height: 35px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+}
+
+.nav-links {
+    display: flex; flex-direction: column; gap: 20px; flex: 1;
+}
+
+.nav-item {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 1.4rem;
+    padding: 10px;
+    border-radius: 8px;
+    transition: all 0.2s;
+    display: flex; justify-content: center;
+}
+
+.nav-item:hover, .nav-item.active {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: var(--accent);
+    transform: scale(1.1);
+}
+
+/* --- SIDEBARS --- */
+.sidebar {
+    background-color: var(--bg-app);
+    padding: 20px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden; /* Trava o scroll da barra inteira */
+}
+.right-sidebar { border-left: 1px solid var(--border); border-right: none; }
+
+/* Header da Sidebar */
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0; /* Impede que o header suma */
+}
+
+.sidebar-header h3 {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin: 0;
+}
+
+/* Botão + Nova */
+.btn-add-icon {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: all 0.2s;
+}
+.btn-add-icon:hover {
+    background: var(--accent);
+    color: white;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+
+/* Lista com Scroll (A Mágica do Scroll Infinito) */
+.scroll-list {
+    flex: 1; /* Ocupa o resto do espaço */
+    overflow-y: auto; /* Scroll só aqui */
+    padding-right: 5px;
+}
+.scroll-list::-webkit-scrollbar { width: 4px; }
+.scroll-list::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+.scroll-list::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* --- CARDS (NOTION STYLE) --- */
+.notion-card {
+    background-color: #252525;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    position: relative;
+}
+.notion-card:hover {
+    background-color: #2f2f2f;
+    border-color: #444;
+    transform: translateY(-1px);
+}
+
+.card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+/* Checkbox Visual */
+.card-check-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-grow: 1;
+}
+.custom-checkbox {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #555;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+.notion-card:hover .custom-checkbox { border-color: var(--accent); }
+
+.card-title {
+    font-weight: 500;
+    color: #e0e0e0;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+/* Botão Delete */
+.btn-delete {
+    background: transparent;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+    padding: 4px;
+    border-radius: 4px;
+}
+.btn-delete:hover { background-color: rgba(239, 68, 68, 0.2); }
+.notion-card:hover .btn-delete { opacity: 1; }
+
+.card-meta {
+    display: flex;
+    font-size: 0.75rem;
+    color: #888;
+}
+.meta-left { display: flex; gap: 8px; align-items: center; }
+
+/* Tags */
+.tag-prio { padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+.tag-prio.high { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+.tag-prio.low { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+
+/* --- MAIN CONTENT (CHAT) --- */
+.main-content {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 30px;
+    position: relative;
+    overflow: hidden;
+}
+
+.daily-focus-card {
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+}
+h2 { font-weight: 500; margin: 10px 0; font-size: 1.8rem; }
+.focus-desc { color: var(--text-muted); }
+
+.interaction-area {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-bottom: 20px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) var(--bg-app);
+    mask-image: linear-gradient(to bottom, transparent 0%, black 5%, black 100%);
+}
+
+.brain-container {
+    text-align: center;
+    opacity: 0.8;
+    margin-top: 40px;
+    margin-bottom: 40px;
+    flex-shrink: 0;
+}
+#lottie-brain { width: 200px; height: 200px; margin: 0 auto; }
+
+.chat-history {
+    width: 100%;
+    max-width: 700px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+/* Balões de Chat */
+.msg { padding: 10px 16px; border-radius: 20px; max-width: 80%; font-size: 0.95rem; line-height: 1.5; }
+.msg.user { align-self: flex-end; background-color: var(--bg-hover); color: var(--text-main); border-bottom-right-radius: 4px; }
+.msg.bot { align-self: flex-start; background-color: transparent; color: var(--text-main); padding-left: 0; }
+
+/* Input Flutuante */
+.chat-input-wrapper {
+    flex-shrink: 0;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    max-width: 700px;
+    width: 100%;
+    margin: 0 auto;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
+    z-index: 10;
+}
+.chat-input-wrapper input { flex-grow: 1; background: transparent; border: none; color: white; font-size: 1rem; outline: none; }
+.chat-input-wrapper button { background: transparent; border: none; color: var(--accent); cursor: pointer; font-size: 1.2rem; }
+
+/* --- TOOLS SIDEBAR --- */
+.card { background-color: var(--bg-card); border-radius: 12px; padding: 15px; border: 1px solid var(--border); }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 0.9rem; color: var(--text-muted); font-weight: 600; }
+
+.note-input-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
+.note-input-group input, .note-input-group textarea {
+    background: var(--bg-app); border: 1px solid var(--border); padding: 8px; border-radius: 6px; color: white; width: 100%;
+}
+.btn-small { background: var(--accent); border: none; padding: 6px; border-radius: 4px; color: white; cursor: pointer; }
+
+/* --- MODAL (OVERLAY) --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+.modal-overlay.active { opacity: 1; pointer-events: all; }
+
+.modal-box {
+    background-color: #1a1a1a;
+    width: 450px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 30px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    transform: scale(0.95);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.modal-overlay.active .modal-box { transform: scale(1); }
+
+.modal-title { font-size: 1.2rem; color: white; margin-bottom: 20px; }
+
+.form-group { margin-bottom: 15px; }
+.form-label { display: block; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 8px; }
+.input-fancy {
+    width: 100%; background-color: #0f0f0f; border: 1px solid #333; padding: 12px; border-radius: 8px; color: white; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s;
+}
+.input-fancy:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1); }
+
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+.btn-cancel { background: transparent; border: none; color: #888; padding: 10px 20px; cursor: pointer; }
+.btn-save {
+    background: var(--accent); border: none; color: white; padding: 10px 25px; border-radius: 8px; font-weight: 600; cursor: pointer;
+}
+
+/* --- MARKDOWN STYLES --- */
+.msg.bot ul, .msg.bot ol { margin-left: 20px; margin-bottom: 10px; }
+.msg.bot li { margin-bottom: 5px; }
+.msg.bot strong { color: var(--accent); font-weight: 600; }
+pre {
+    background-color: #1e1e1e !important; border: 1px solid #333; border-radius: 8px; padding: 12px; margin: 10px 0; overflow-x: auto; font-family: 'Consolas', monospace; font-size: 0.9em;
+}
+code:not(pre code) {
+    background-color: rgba(255, 255, 255, 0.1); padding: 2px 5px; border-radius: 4px; color: #e06c75; font-family: monospace;
+}
+
+/* Grupos Dropdown */
+details summary {
+    cursor: pointer; padding: 10px 0; color: #a0a0a0; font-size: 0.85rem; font-weight: 600; list-style: none; display: flex; justify-content: space-between;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary:hover { color: #fff; }
+
+.group-header-simple {
+    padding: 10px 0; color: #a0a0a0; font-size: 0.85rem; font-weight: 600; border-top: 1px solid #333; margin-top: 10px;
+}
+.hidden { display: none; }
+
+/* --- CODE VAULT (SNIPPETS) --- */
+.note-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Ocupa altura disponível */
+    border: none;
+    background: transparent;
+    padding: 0;
+}
+
+.snippet-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.input-fancy-small {
+    background: #0f0f0f;
+    border: 1px solid #333;
+    color: white;
+    padding: 5px;
+    border-radius: 4px;
+    flex-grow: 1;
+    font-size: 0.8rem;
+}
+
+.code-input {
+    font-family: 'Consolas', 'Fira Code', monospace; /* Fonte de hacker */
+    font-size: 0.85rem;
+    min-height: 100px;
+    background: #151515;
+    color: #a5b3ce; /* Cor azulada clara igual VS Code */
+    line-height: 1.5;
+    border: 1px solid #333;
+}
+.code-input:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+/* Item da Lista de Snippet */
+.snippet-item {
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.snippet-header {
+    background: #252525;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #333;
+}
+
+.snippet-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #e0e0e0;
+}
+
+.snippet-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.badge-lang {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    color: #888;
+    background: rgba(255,255,255,0.05);
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.btn-copy {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+.btn-copy:hover { opacity: 1; transform: scale(1.1); }
+
+/* Ajuste do bloco de código dentro da lista */
+.snippet-item pre {
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    padding: 10px;
+    max-height: 150px; /* Limita altura se for longo */
+    overflow-y: auto;
+}
+.snippet-item code {
+    background: transparent !important; /* Remove fundo duplo */
+    padding: 0;
+}
+
+/* Scrollbar fina para o código */
+.snippet-item pre::-webkit-scrollbar { width: 4px; height: 4px; }
+.snippet-item pre::-webkit-scrollbar-thumb { background: #444; }
+
+/* --- SPOTIFY --- */
+.spotify-container {
+    flex-shrink: 0; /* MÁGICA: Impede o Spotify de ser esmagado */
+    margin-top: 10px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border);
+    background-color: var(--bg-app); /* Garante fundo opaco */
+}
+
+/* --- SIDEBAR DIREITA (CONTAINER PAI) --- */
+.right-sidebar {
+    display: flex;
+    flex-direction: column;
+    height: 100vh; /* Altura total da tela */
+    overflow: hidden; /* Impede scroll na barra inteira */
+    padding-bottom: 20px; /* Um respiro no final */
+}
+
+/* --- CODE VAULT (CONTAINER DE CIMA) --- */
+.note-card {
+    display: flex;
+    flex-direction: column;
+    flex: 1; /* MÁGICA: Ocupa todo o espaço disponível (sobra do Spotify) */
+    min-height: 0; /* Importante para o Flexbox não estourar */
+    border: none;
+    background: transparent;
+    padding: 0;
+    margin-bottom: 10px;
+}
+
+.card-header {
+    flex-shrink: 0; /* Cabeçalho não encolhe */
+}
+
+.note-input-group {
+    flex-shrink: 0; /* Inputs não encolhem */
+}
+
+/* --- LISTA DE SNIPPETS (QUEM ROLA) --- */
+.scroll-list.note-list {
+    flex: 1; /* Ocupa o resto do card */
+    overflow-y: auto; /* Scroll APENAS aqui dentro */
+    padding-right: 5px;
+    /* Estilo da barra de rolagem */
+    scrollbar-width: thin;
+    scrollbar-color: #333 var(--bg-app);
+}
+
+/* --- ESTILOS DE PÁGINA (GENÉRICO) --- */
+.page-container {
+    padding: 40px;
+    height: 100%;
+    overflow-y: auto; /* A página rola, o menu não */
+}
+
+.page-header {
+    margin-bottom: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.page-header h1 { font-size: 2rem; font-weight: 600; color: white; }
+.subtitle { color: var(--text-muted); margin-top: 5px; }
+
+.btn-primary {
+    background-color: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.2s;
+}
+.btn-primary:hover { transform: scale(1.05); background-color: #2563eb; }
+
+/* --- WAR ROOM (TASKS) --- */
+.tasks-grid {
+    display: flex;
+    gap: 30px;
+    overflow-x: auto; /* Scroll lateral se tiver muitos grupos */
+    padding-bottom: 20px;
+}
+
+.task-column {
+    min-width: 350px;
+    background-color: #1a1a1a;
+    border-radius: 12px;
+    padding: 15px;
+    border: 1px solid var(--border);
+    height: fit-content; /* Altura ajustada ao conteúdo */
+}
+
+.column-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #333;
+}
+
+.badge-count {
+    background: #333;
+    color: var(--text-muted);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+}
+
+/* --- VAULT (SNIPPETS) --- */
+.vault-input-area {
+    background-color: #1a1a1a;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 40px;
+    border: 1px solid var(--border);
+}
+
+.input-row { display: flex; gap: 15px; margin-bottom: 15px; }
+.input-row .input-fancy { margin-bottom: 0; } /* Remove margem padrão */
+
+.snippet-card {
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.snippet-header {
+    background-color: #252525;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.snippet-lang {
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    background: var(--accent);
+    color: white;
+    padding: 3px 6px;
+    border-radius: 4px;
+    margin-right: 10px;
+}
+
+.snippet-name { font-weight: 600; color: #e0e0e0; }
+.btn-icon { background: none; border: none; cursor: pointer; font-size: 1.2rem; }
+
+.snippet-body {
+    padding: 0;
+    background-color: #1e1e1e;
+}
+.snippet-body pre { margin: 0; border: none; border-radius: 0; }
+
+#btnMic {
+    background: transparent;
+    border: none;
+    font-size: 1.3rem;
+    cursor: pointer;
+    transition: transform 0.2s, color 0.2s;
+    color: var(--text-muted);
+}
+
+#btnMic:hover {
+    transform: scale(1.2);
+    color: var(--accent); /* Azul quando passa o mouse */
+}
+
+#vanta-bg {
+    position: fixed;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0; /* Fica atrás de tudo */
+    top: 0; left: 0;
+    pointer-events: none; /* Permite clicar nos itens da frente */
+}
+.app-container {
+    background-color: transparent !important; /* Deixa transparente para ver o fundo */
+    z-index: 1;
+    position: relative;
+}
+.sidebar, .main-content {
+    background: rgba(18, 18, 18, 0.85); /* Vidro Fosco nas colunas */
+    backdrop-filter: blur(10px);
+}
+
+.brain-selector {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 10px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 12px;
+}
+.brain-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.3s;
+}
+.brain-btn:hover, .brain-btn.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+}

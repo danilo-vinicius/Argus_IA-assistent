@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}War Room{% endblock %}
+
+{% block content %}
+{% macro render_card(t) %}
+<div class="notion-card" onclick="finishTask({{ t.id }})">
+    <div class="card-top">
+        <div class="card-check-group">
+            <div class="custom-checkbox"></div>
+            <span class="card-title">{{ t.descricao }}</span>
+        </div>
+        <button class="btn-delete" onclick="event.stopPropagation(); deleteTask({{ t.id }})">🗑️</button>
+    </div>
+    <div class="card-meta">
+        <div class="meta-left">
+            <span class="meta-date">📅 {{ t.prazo }}</span>
+            {% if t.prioridade == 'Alta' %}<span class="tag-prio high">Alta</span>{% endif %}
+            {% if t.prioridade == 'Baixa' %}<span class="tag-prio low">Baixa</span>{% endif %}
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+<div class="page-container">
+    <div class="page-header">
+        <h1>War Room ⚔️</h1>
+        <button class="btn-primary" onclick="openModal()">+ Nova Missão</button>
+    </div>
+
+    <div class="tasks-grid">
+        {% for grupo, lista in tarefas_agrupadas.items() %}
+        <div class="task-column">
+            <div class="column-header">
+                <h3>{{ grupo }}</h3>
+                <span class="badge-count">{{ lista|length }}</span>
+            </div>
+            <div class="column-content">
+                {% for t in lista %}
+                    {{ render_card(t) }}
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div id="taskModal" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-title">✨ Nova Demanda</div>
+        <div class="form-group">
+            <label class="form-label">O que precisa ser feito?</label>
+            <input type="text" id="modalDesc" class="input-fancy" placeholder="Ex: Ajustar Pipeline Bronze..." autofocus>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Prazo Final</label>
+            <input type="date" id="modalDate" class="input-fancy">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Em qual Pasta/Grupo?</label>
+            <input list="grupos-existentes" id="modalGrupo" class="input-fancy" placeholder="Selecione ou digite um novo...">
+            <datalist id="grupos-existentes">
+                {% for grupo in tarefas_agrupadas.keys() %}
+                <option value="{{ grupo }}">
+                {% endfor %}
+            </datalist>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Prioridade</label>
+            <select id="modalPrio" class="input-fancy">
+                <option value="Normal">Normal 🔵</option>
+                <option value="Alta">Alta 🔥</option>
+                <option value="Baixa">Baixa 🧊</option>
+            </select>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+            <button class="btn-save" onclick="saveTaskFromModal()">Criar Protocolo</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

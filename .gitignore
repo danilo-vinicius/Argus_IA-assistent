@@ -1,0 +1,17 @@
+# Segurança (Segredos)
+.env
+
+# Lixo do Python e Compilados
+__pycache__/
+*.pyc
+venv/
+.vscode/
+.idea/
+
+# Bancos de Dados Locais e Arquivos Pesados
+chroma_db_local/
+instance/
+*.db
+
+# Pastas de Conhecimento (Docs da empresa não devem subir)
+knowledge_base/
