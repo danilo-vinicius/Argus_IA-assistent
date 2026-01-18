@@ -1,0 +1,20 @@
+services:
+  argus-core:
+    build: .
+    container_name: argus_system
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mapeia a pasta local para dentro do container (para desenvolvimento)
+      - .:/app
+      # Ignora a venv local para não misturar com a do Linux
+      - /app/venv
+    environment:
+      # Passa a chave do Google que está no seu .env
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      # Importante: Diz para o Argus onde está o Ollama (no host, não no container)
+      - OLLAMA_HOST=http://host.docker.internal:11434
+    extra_hosts:
+      # Permite que o container acesse o 'localhost' do Windows
+      - "host.docker.internal:host-gateway"

@@ -1,12 +1,28 @@
+# --- NÚCLEO WEB ---
 flask
 flask-socketio
+python-socketio
+python-engineio
 python-dotenv
+
+# --- INTELIGÊNCIA ARTIFICIAL (LIBERADA) ---
+# Deixamos sem versão para ele pegar o conjunto compatível mais recente
+langchain
+langchain-community
+langchain-core
 langchain-google-genai
 langchain-ollama
 langchain-chroma
-langchain-community
-langchain-core
+google-generativeai
+google-api-core
+google-auth
+
+# --- BANCO DE DADOS (TRAVA DE SEGURANÇA) ---
+# O ChromaDB precisa do Numpy antigo no Windows, isso é OBRIGATÓRIO.
+numpy<2.0.0
+chromadb
+
+# --- UTILITÁRIOS ---
 pymupdf
 AppOpener
-chromadb
 streamlit

@@ -29,7 +29,12 @@ if not api_key_segura:
 os.environ["GOOGLE_API_KEY"] = api_key_segura
 
 # --- CONFIGURAÇÃO DE MEMÓRIA (OLLAMA) ---
-embeddings = OllamaEmbeddings(model="nomic-embed-text")
+ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+
+embeddings = OllamaEmbeddings(
+    model="nomic-embed-text",
+    base_url=ollama_host # <--- ADICIONAR ISSO
+)
 DB_DIR = "chroma_db_local"
 
 # --- DEFINIÇÃO DOS CÉREBROS (PERSONAS) ---
