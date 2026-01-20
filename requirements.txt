@@ -26,3 +26,10 @@ chromadb
 pymupdf
 AppOpener
 streamlit
+
+#para deixar o argus autônomo
+APScheduler==3.10.4
+mediapipe==0.10.9
+opencv-python==4.9.0.80
+screeninfo==0.8.1
+pyautogui==0.9.54

@@ -1,70 +1,83 @@
 import sqlite3
-import pandas as pd
-from datetime import datetime
+import datetime
+import json
+
+DB_NAME = "jarvis_memory.db"
 
 class DataManager:
-    def __init__(self, db_name="jarvis_memory.db"):
-        self.conn = sqlite3.connect(db_name, check_same_thread=False)
+    def __init__(self):
+        self.conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+        self.cursor = self.conn.cursor()
         self.create_tables()
 
     def create_tables(self):
-        cursor = self.conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS tarefas (
+        # Tabela 1: Recompensas (O "Dopamina" do Sistema)
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS recompensas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                descricao TEXT,
-                prioridade TEXT,
-                grupo TEXT,
-                prazo DATE,
-                status TEXT,
-                data_criacao TEXT
+                brain_id TEXT,
+                timestamp DATETIME,
+                user_query TEXT,
+                bot_response TEXT,
+                reward_score INTEGER,
+                feedback_notes TEXT
             )
         ''')
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS notas (
+
+        # Tabela 2: Curiosidade Ativa (Backlog de Estudos)
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS pontos_curiosidade (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                titulo TEXT,
-                conteudo TEXT,
-                categoria TEXT
+                tema TEXT,
+                origem_contexto TEXT,
+                status_pesquisa TEXT DEFAULT 'Pendente', -- Pendente, Em Analise, Aprendido
+                insight_gerado TEXT,
+                data_descoberta DATETIME
+            )
+        ''')
+
+        # Tabela 3: Configuração Dinâmica dos Cérebros (Meta-Cognição)
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS config_cerebros (
+                brain_id TEXT PRIMARY KEY,
+                system_prompt TEXT,
+                temperatura REAL,
+                ultima_atualizacao DATETIME
+            )
+        ''')
+        
+        # Tabelas Legadas (Mantidas para compatibilidade)
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS historico_comandos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                comando TEXT,
+                data_hora DATETIME
             )
         ''')
         self.conn.commit()
 
-    def add_tarefa(self, descricao, prioridade="Normal", grupo="Geral", prazo=None):
-        cursor = self.conn.cursor()
-        data_c = datetime.now().strftime("%Y-%m-%d %H:%M")
-        if not prazo: prazo = datetime.now().strftime("%Y-%m-%d")
-        
-        cursor.execute("INSERT INTO tarefas (descricao, prioridade, grupo, prazo, status, data_criacao) VALUES (?, ?, ?, ?, ?, ?)", 
-                       (descricao, prioridade, grupo, prazo, "Pendente", data_c))
+    # --- MÉTODOS DE APRENDIZADO POR REFORÇO ---
+
+    def registrar_recompensa(self, brain_id, query, response, score, notes=""):
+        """Registra feedback positivo (+1) ou negativo (-1)"""
+        self.cursor.execute('''
+            INSERT INTO recompensas (brain_id, timestamp, user_query, bot_response, reward_score, feedback_notes)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (brain_id, datetime.datetime.now(), query, response, score, notes))
         self.conn.commit()
 
-    def get_tarefas_pendentes(self):
-        return pd.read_sql("SELECT * FROM tarefas WHERE status = 'Pendente' ORDER BY grupo DESC, prazo ASC", self.conn)
+    def adicionar_curiosidade(self, tema, contexto):
+        """Registra algo que o Argus não sabe e precisa pesquisar depois"""
+        self.cursor.execute('''
+            INSERT INTO pontos_curiosidade (tema, origem_contexto, data_descoberta)
+            VALUES (?, ?, ?)
+        ''', (tema, contexto, datetime.datetime.now()))
+        self.conn.commit()
 
-    def concluir_tarefa(self, id_tarefa):
-        cursor = self.conn.cursor()
-        cursor.execute("UPDATE tarefas SET status = 'Concluido' WHERE id = ?", (id_tarefa,))
-        self.conn.commit()
-    
-    # Função de Deletar
-    def deletar_tarefa(self, id_tarefa):
-        cursor = self.conn.cursor()
-        cursor.execute("DELETE FROM tarefas WHERE id = ?", (id_tarefa,))
-        self.conn.commit()
-        
-    # Função para o Chat usar (Tools)
-    def atualizar_prazo_tarefa(self, termo_pesquisa, novo_prazo):
-        cursor = self.conn.cursor()
-        cursor.execute("UPDATE tarefas SET prazo = ? WHERE descricao LIKE ? AND status = 'Pendente'", (novo_prazo, f"%{termo_pesquisa}%"))
-        self.conn.commit()
-        return f"Tarefas contendo '{termo_pesquisa}' movidas para {novo_prazo}."
+    def get_curiosidades_pendentes(self):
+        """Busca o que precisa ser estudado"""
+        self.cursor.execute("SELECT * FROM pontos_curiosidade WHERE status_pesquisa = 'Pendente'")
+        return self.cursor.fetchall()
 
-    # --- Notas ---
-    def add_nota(self, titulo, conteudo, categoria="plaintext"):
-        cursor = self.conn.cursor()
-        cursor.execute("INSERT INTO notas (titulo, conteudo, categoria) VALUES (?, ?, ?)", (titulo, conteudo, categoria))
-        self.conn.commit()
-    
-    def get_notas(self):
-        return pd.read_sql("SELECT * FROM notas ORDER BY id DESC", self.conn)
+    def close(self):
+        self.conn.close()

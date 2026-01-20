@@ -1,212 +1,208 @@
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
+from apscheduler.schedulers.background import BackgroundScheduler
 from database import DataManager
 import datetime
 import os
 import automation
 import organizer
 import model_manager
+import personas
+import threading
 
-# --- IMPORTS HÍBRIDOS (GOOGLE + OLLAMA) ---
+# --- IMPORTS HÍBRIDOS ---
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.callbacks import BaseCallbackHandler
 from dotenv import load_dotenv
 
-# Carrega as variáveis do arquivo .env
+# --- IMPORT DA VOZ ---
+from vocal_core import VocalCore
+
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
+app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "argus_secret")
 socketio = SocketIO(app, cors_allowed_origins="*", ping_timeout=600, ping_interval=25)
 db = DataManager()
 
-# --- CONFIGURAÇÃO DA CHAVE DO GOOGLE ---
-api_key_segura = os.getenv("GOOGLE_API_KEY")
-if not api_key_segura:
-    print("ERRO CRÍTICO: Chave de API não encontrada no arquivo .env")
-os.environ["GOOGLE_API_KEY"] = api_key_segura
+# --- INICIALIZAÇÃO DA VOZ ---
+print("⏳ Carregando Módulo de Voz...")
+try:
+    vocal = VocalCore()
+except Exception as e:
+    print(f"⚠️ Erro ao iniciar voz: {e}")
+    vocal = None
 
-# --- CONFIGURAÇÃO DE MEMÓRIA (OLLAMA) ---
+# --- MEMÓRIA & CONFIGURAÇÕES ---
 ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-
-embeddings = OllamaEmbeddings(
-    model="nomic-embed-text",
-    base_url=ollama_host # <--- ADICIONAR ISSO
-)
+embeddings = OllamaEmbeddings(model="nomic-embed-text", base_url=ollama_host)
 DB_DIR = "chroma_db_local"
+user_session = {"active_brain": "strategist", "chat_history": []}
 
-# --- DEFINIÇÃO DOS CÉREBROS (PERSONAS) ---
-BRAIN_INSTRUCTIONS = {
-    "system_admin": """
-        Você é o ARGUS (Núcleo Administrativo).
-        Sua função é gerenciar o sistema, executar automações e organizar o ambiente digital do Danilo.
-        Tom: Eficiente, minimalista e prestativo. Como um mordomo digital de alta tecnologia ou uma IA de nave (tipo JARVIS/FRIDAY).
-        Não tente ensinar nada acadêmico, apenas confirme a execução de tarefas com precisão e brevidade.
-    """,
-    "ds_analytics": """
-        Você é o ARGUS (Módulo Acadêmico).
-        O Danilo está cursando pós-graduação em Ciência de Dados e Big Data Analytics.
-        Use o contexto abaixo para ensinar. Ignore cabeçalhos de PDF. Foque no conteúdo técnico.
-    """,
-    "iqm_diretoria": """
-        Você é o ARGUS (Módulo Corporativo).
-        Sua função é vigiar os indicadores e qualidade da Empresa. "Empresa atual: Brasfort".
-        Seja analítico, direto e executivo.
-    """,
-    "brasfort_global": """
-        Você é o ARGUS (Módulo Operacional).
-        Você possui a visão geral dos processos para o trabalho de analista e cientista de dados.
-    """
-}
+# --- SCHEDULER (AUTONOMIA) ---
+scheduler = BackgroundScheduler()
 
-user_session = {"active_brain": "ds_analytics", "chat_history": []}
-
-# --- CLASSE DE STREAMING ---
-class SocketIOCallback(BaseCallbackHandler):
-    def on_llm_new_token(self, token: str, **kwargs) -> None:
-        socketio.emit('ai_stream', {'chunk': token})
-
-def get_model_by_name(brain_key):
-    """Retorna o modelo configurado para um cérebro específico"""
-    
-    # Se o cérebro não existir, usa o admin como fallback seguro
-    system_prompt = BRAIN_INSTRUCTIONS.get(brain_key, BRAIN_INSTRUCTIONS["system_admin"])
-    
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0.3,
-        streaming=True,
-        callbacks=[SocketIOCallback()]
-    )
-    
-    return llm, system_prompt
-
-def query_knowledge(brain_id, query_text):
-    """Busca Localmente usando Ollama Embeddings"""
+def rotina_de_curiosidade():
+    """Roda a cada 1 hora: Verifica lacunas de conhecimento e 'estuda'"""
+    print("🔎 [ARGUS AUTONOMOUS] Verificando lacunas de conhecimento...")
     try:
-        if not os.path.exists(DB_DIR): return None
-        
-        # O Admin não precisa buscar em PDF técnico, ele só executa.
-        if brain_id == "system_admin": return None
+        pendencias = db.get_curiosidades_pendentes()
+        if pendencias:
+            print(f"   Encontrei {len(pendencias)} temas para estudar.")
+        else:
+            print("   Nenhuma lacuna crítica encontrada.")
+    except:
+        pass
 
-        vectorstore = Chroma(
-            persist_directory=DB_DIR, 
-            embedding_function=embeddings, 
-            collection_name=brain_id
-        )
+if not scheduler.running:
+    scheduler.add_job(func=rotina_de_curiosidade, trigger="interval", minutes=60)
+    scheduler.start()
+
+# --- NOVA CLASSE DE STREAMING (VISUAL + ÁUDIO) ---
+class VoiceSocketCallback(BaseCallbackHandler):
+    def __init__(self, brain_name):
+        self.brain_name = brain_name
+        self.text_buffer = ""
         
-        results = vectorstore.similarity_search(query_text, k=3)
-        if not results: return None
-        return "\n\n".join([doc.page_content for doc in results])
-    except Exception as e:
-        print(f"Erro na busca local: {e}")
-        return None
+    def on_llm_new_token(self, token: str, **kwargs) -> None:
+        # 1. Envia pro Frontend (Visual)
+        socketio.emit('ai_stream', {'chunk': token})
+        
+        # 2. Acumula para a Voz (Bufferização Inteligente)
+        if vocal:
+            self.text_buffer += token
+            # Se encontrar pontuação, manda o trecho para o Kokoro falar
+            if any(p in token for p in ['.', '!', '?', ':', '\n']):
+                voice_id = vocal.get_voice_for_brain(self.brain_name)
+                # Acessa o método interno para gerar fila
+                vocal._generate_and_queue(self.text_buffer, voice_id)
+                self.text_buffer = ""
 
 # --- ROTAS FLASK ---
 @app.route('/')
 def home():
-    return render_template('index.html', saudacao="Argus Online (Híbrido)", foco="Cérebro: Gemini | Memória: Local", active_brain=user_session["active_brain"])
+    brain = personas.get_active_brain()
+    if isinstance(user_session.get("active_brain"), dict):
+        brain = user_session["active_brain"]
+    else:
+        user_session["active_brain"] = brain
+        
+    return render_template('index.html', 
+                         brain_name=brain["name"], 
+                         brain_color=brain["color"])
 
-@app.route('/tasks')
-def tasks_page():
-    return render_template('tasks.html', tarefas_agrupadas={})
+@app.route('/api/reward', methods=['POST'])
+def registrar_recompensa():
+    """Recebe o Like/Dislike do Frontend"""
+    data = request.json
+    brain = data.get('brain')
+    score = data.get('score')
+    
+    print(f"\n⭐ FEEDBACK RECEBIDO! Cérebro: {brain} | Nota: {score}")
+    print(f"   (Gravado no Banco de Dados)\n")
 
-@app.route('/vault')
-def vault_page():
-    return render_template('vault.html', notas=[])
+    db.registrar_recompensa(
+        brain_id=brain,
+        query=data.get('query'),
+        response=data.get('response'),
+        score=score
+    )
+    return jsonify({"status": "feedback_registrado"})
 
 # --- SOCKET EVENTS ---
 @socketio.on('connect')
 def handle_connect():
-    emit('status_update', {'msg': 'Sistema Híbrido Conectado.'})
+    brain = user_session.get("active_brain")
+    if not isinstance(brain, dict):
+        brain = personas.get_active_brain()
+        user_session["active_brain"] = brain
+        
+    emit('status_update', {'msg': f'Conectado. Cérebro: {brain["name"]}', 'color': brain["color"]})
 
-@socketio.on('switch_brain')
-def handle_brain_switch(data):
-    user_session["active_brain"] = data.get('brain')
-    emit('status_update', {'msg': f'Contexto: {user_session["active_brain"].upper()}'})
+@socketio.on('vision_event')
+def handle_vision(data):
+    tipo = data.get('type')
+    msg = data.get('message')
+    print(f"👁️ VISÃO COMPUTACIONAL: {tipo} - {msg}")
+    
+    emit('vision_feedback', {'type': tipo, 'msg': msg})
+    
+    if tipo == 'GESTURE_LOCK':
+        try:
+            automation.bloquear_windows()
+        except:
+            pass
+    elif tipo == 'GESTURE_REPORT':
+        emit('status_update', {'msg': '✌️ Gesto "V" detectado: Iniciando Relatórios...'})
+
+@socketio.on('manual_brain_switch')
+def handle_manual_switch(data):
+    key = data.get('brain_key')
+    if key in personas.BRAINS:
+        brain_data = personas.BRAINS[key]
+        user_session["active_brain"] = brain_data
+        
+        emit('brain_change', {'name': brain_data["name"], 'color': brain_data["color"]})
+        emit('status_update', {'msg': f'🔄 Modulação Manual: {brain_data["name"]} Ativado.'})
+        print(f"🎛️ Troca Manual para: {brain_data['name']}")
 
 @socketio.on('user_message')
 def handle_message(data):
     user_text = data.get('message')
+    texto_lower = user_text.lower()
     
-    current_brain = user_session["active_brain"]
-    brain_for_response = current_brain 
-    
+    # 1. Definição de Cérebro (Com persistência)
+    if "código" in texto_lower or "python" in texto_lower:
+        brain_data = personas.BRAINS["architect"]
+    elif "relatório" in texto_lower or "kpi" in texto_lower:
+        brain_data = personas.BRAINS["strategist"]
+    elif "automação" in texto_lower or "abrir" in texto_lower:
+        brain_data = personas.BRAINS["operator"]
+    elif "inglês" in texto_lower or "postura" in texto_lower:
+        brain_data = personas.BRAINS["polymath"]
+    else:
+        current = user_session.get("active_brain")
+        if isinstance(current, dict):
+            brain_data = current
+        else:
+            brain_data = personas.get_active_brain()
+
+    user_session["active_brain"] = brain_data
+    emit('brain_change', {'name': brain_data["name"], 'color': brain_data["color"]})
+
     try:
         emit('ai_stream_start', {})
         
+        # 2. Interrompe voz anterior
+        if vocal:
+            vocal.stop()
+        
+        # 3. Automação Rápida
         system_log = ""
-        texto_lower = user_text.lower()
-
-        # --- GATILHOS (MANTIDOS IGUAIS) ---
-        gatilhos_matinais = ["rotina matinal", "começar o dia", "iniciar o dia", "modo trabalho", "vamos trabalhar"]
-        gatilhos_limpeza = ["organizar arquivos", "organizar meus arquivos", "organizar os arquivos", "limpar downloads"]
-
-        if any(gatilho in texto_lower for gatilho in gatilhos_matinais):
-            emit('ai_stream', {'chunk': '⚡ Argus Synapse: Iniciando protocolos de trabalho...\n\n'})
-            resultado_acao = automation.executar_rotina_matinal()
-            system_log = f"[SISTEMA: {resultado_acao}]"
-            brain_for_response = "system_admin"
-
-        elif any(gatilho in texto_lower for gatilho in gatilhos_limpeza):
-            emit('ai_stream', {'chunk': '🧹 Argus Local: Acessando sistema de arquivos...\n\n'})
-            resultado_acao = organizer.organizar_downloads()
-            system_log = f"[SISTEMA: {resultado_acao}]"
-            brain_for_response = "system_admin"
+        if "bloquear" in texto_lower:
+            automation.bloquear_windows()
+            system_log = "[AÇÃO: Windows Bloqueado]"
         
-        elif "abrir" in texto_lower and "outlook" in texto_lower:
-            automation.abrir_app_windows("outlook")
-            system_log = "[SISTEMA: Outlook aberto.]"
-            brain_for_response = "system_admin"
-        
-        # --- PREPARAÇÃO DO PROMPT ---
-
-        # 1. Busca Contexto (RAG)
-        contexto_rag = query_knowledge(brain_for_response, user_text)
-        
-        # 2. Pega a Instrução do Sistema (Persona)
-        # Se não achar o cérebro, usa o admin
-        system_instruction = BRAIN_INSTRUCTIONS.get(brain_for_response, BRAIN_INSTRUCTIONS["system_admin"])
-        
+        # 4. Prompt
         prompt_final = f"""
-        System: {system_instruction}
-        
-        Contexto Recuperado:
-        {contexto_rag if contexto_rag else "Nenhum contexto específico necessário."}
-        
-        LOG DE AÇÕES DO SISTEMA:
-        {system_log}
-        
-        Usuário: {user_text}
-        
-        Instrução: Se houver LOG DE AÇÕES, confirme a execução.
+        PERSONA: {brain_data['instruction']}
+        LOG DE SISTEMA: {system_log}
+        USUÁRIO: {user_text}
         """
+
+        # 5. Geração com Callback de Voz
+        voice_callback = VoiceSocketCallback(brain_data["name"])
+        generate_function = model_manager.get_fallback_model(callbacks=[voice_callback])
         
-        # --- GERAÇÃO INTELIGENTE (CASCATA) ---
+        response_obj = generate_function(prompt_final)
+        final_text = response_obj.content if hasattr(response_obj, 'content') else str(response_obj)
         
-        # Cria o callback de streaming
-        callback_socket = SocketIOCallback()
-        
-        print(f"🤖 Solicitando resposta para: {brain_for_response}")
-        
-        if brain_for_response == "system_admin":
-            # ECONOMIA: Se for Admin, usa direto o modelo LITE (sem cascata complexa, ou uma cascata só de lites)
-            # Para simplificar, vamos usar a cascata normal, mas você poderia forçar o Lite aqui.
-            generate_function = model_manager.get_fallback_model(callbacks=[callback_socket])
-        else:
-            # DATA SCIENCE/CORP: Usa a cascata completa (Melhor -> Pior)
-            generate_function = model_manager.get_fallback_model(callbacks=[callback_socket])
-        
-        # Executa a geração (A mágica do Loop acontece aqui dentro)
-        generate_function(prompt_final)
-        
-        emit('ai_stream_end', {})
+        emit('ai_stream_end', {'full_text': final_text})
         
     except Exception as e:
-        print(f"Erro Crítico: {e}")
-        emit('ai_response', {'text': f"⚠️ Falha nos sistemas neurais: {str(e)}"})
+        print(f"Erro: {e}")
+        emit('ai_response', {'text': f"Erro: {str(e)}"})
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, port=5000)
