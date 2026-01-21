@@ -1,59 +1,104 @@
 import os
-from langchain_google_genai import ChatGoogleGenerativeAI
-from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
+from dotenv import load_dotenv
 
-# --- LISTA DE PRIORIDADE (ROSTER) ---
-# Ordenado do Melhor/Mais Rápido -> Para o Backup/Antigo
-# Baseado na sua lista de modelos disponíveis
+load_dotenv()
+
+# ==============================================================================
+# 📋 ROSTER DE MODELOS GRATUITOS (OPENROUTER)
+# ==============================================================================
+# Ordem de prioridade: Tenta o primeiro, se falhar, tenta o próximo.
+# Todos abaixo possuem tier "free" no OpenRouter.
+
 MODEL_ROSTER = [
-    "gemini-2.5-flash",          # Principal (Mais inteligente e rápido)
-    "gemini-2.5-flash-lite",     # Backup Imediato (Mesma arquitetura, mais leve)
-    "gemini-2.0-flash",          # Versão anterior (Muito estável)
-    "gemini-2.0-flash-lite",     # Backup da versão anterior
-    "gemma-3-27b-it"             # Modelo Open Source (Costuma ter cota separada)
+    # 1. Google Gemini 2.0 Flash Lite (Rápido, Multimodal, Grátis)
+    "google/gemini-2.0-flash-lite-preview-02-05:free",
+    
+    # 2. Llama 3.3 70B (Muito inteligente, mas apenas Texto)
+    "meta-llama/llama-3.3-70b-instruct:free",
+    
+    # 3. DeepSeek R1 (Ótimo raciocínio, Texto)
+    "deepseek/deepseek-r1:free",
+    
+    # 4. Mistral 7B (Leve e rápido, Texto)
+    "mistralai/mistral-7b-instruct:free"
 ]
 
-# Modelos específicos para tarefas simples (Economia de cota)
-ADMIN_MODEL = "gemini-2.5-flash-lite" 
+# Modelos que ACEITAM IMAGEM (Vision Capable)
+# Se o usuário mandar print, só podemos usar estes.
+VISION_MODELS = [
+    "google/gemini-2.0-flash-lite-preview-02-05:free",
+    "google/gemini-2.0-flash-exp:free"
+]
 
-def get_fallback_model(callbacks, temperature=0.3):
+def get_fallback_model(callbacks=None, temperature=0.7):
     """
-    Retorna uma função que, quando chamada, tenta invocar os modelos em sequência
-    até um funcionar.
+    Retorna uma função executora que gerencia a conexão com o OpenRouter
+    e faz o fallback automático entre modelos em caso de erro.
     """
     
-    def invoker(messages):
-        erros_log = []
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        print("❌ ERRO: OPENROUTER_API_KEY não encontrada no .env")
+        return None
+
+    def generate_response(prompt_input, image_data=None):
+        """
+        Executa a geração de texto ou análise de imagem.
+        """
         
-        for model_name in MODEL_ROSTER:
+        # 1. Monta a mensagem
+        message_content = [{"type": "text", "text": prompt_input}]
+        
+        # Se tiver imagem, adiciona ao payload
+        if image_data:
+            message_content.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{image_data}"}
+            })
+            # Filtra apenas modelos que enxergam
+            current_roster = [m for m in MODEL_ROSTER if m in VISION_MODELS]
+            print("👁️ Modo Visão Ativado: Filtrando modelos multimodais...")
+        else:
+            # Texto puro: usa todos
+            current_roster = MODEL_ROSTER
+
+        # 2. Loop de Tentativas (Fallback)
+        last_error = None
+        
+        for model_name in current_roster:
             try:
-                print(f"🔄 Tentando conectar no modelo: {model_name}...")
+                print(f"🔄 Conectando OpenRouter: {model_name}...")
                 
-                llm = ChatGoogleGenerativeAI(
+                llm = ChatOpenAI(
                     model=model_name,
+                    openai_api_key=api_key,
+                    openai_api_base="https://openrouter.ai/api/v1",
                     temperature=temperature,
                     streaming=True,
                     callbacks=callbacks,
-                    google_api_key=os.getenv("GOOGLE_API_KEY")
+                    # Headers exigidos pelo OpenRouter para ranking
+                    default_headers={
+                        "HTTP-Referer": os.getenv("YOUR_SITE_URL", "http://localhost:5000"),
+                        "X-Title": os.getenv("YOUR_APP_NAME", "Argus Local")
+                    }
                 )
                 
-                # Tenta gerar a resposta
-                result = llm.invoke(messages)
+                messages = [HumanMessage(content=message_content)]
+                response = llm.invoke(messages)
                 
-                # Se chegou aqui, funcionou!
                 print(f"✅ Sucesso com: {model_name}")
-                return result
-                
-            except ResourceExhausted:
-                print(f"⚠️ Cota estourada no {model_name} (429). Tentando próximo...")
-                erros_log.append(f"{model_name}: 429")
-                continue # Pula para o próximo loop
+                return response
+
             except Exception as e:
-                print(f"❌ Erro genérico no {model_name}: {e}")
-                erros_log.append(f"{model_name}: {str(e)}")
+                error_msg = str(e)
+                print(f"⚠️ Falha no {model_name}: {error_msg}")
+                last_error = error_msg
+                # Continua para o próximo modelo da lista
                 continue
         
-        # Se saiu do loop, nenhum funcionou
-        raise Exception(f"Todos os modelos falharam. Logs: {', '.join(erros_log)}")
+        # Se saiu do loop, tudo falhou
+        return f"Desculpe, chefe. Todos os satélites de IA estão fora do ar. Erro final: {last_error}"
 
-    return invoker
+    return generate_response

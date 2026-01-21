@@ -1,12 +1,27 @@
 @echo off
-title ARGUS SYSTEM v2.5
+TITLE ARGUS LAUNCHER
+
+echo ===================================================
+echo    INICIANDO ARGUS SYSTEM (Brain + Vision + Voice)
+echo ===================================================
+
+:: 1. Ativa o ambiente virtual
+call venv\Scripts\activate
+
+:: 2. Inicia o Servidor (Cérebro + Voz TTS)
+start "ARGUS BRAIN" cmd /k "python app.py"
+
+:: Aguarda o servidor subir um pouco
+timeout /t 5
+
+:: 3. Inicia a Visão (Gesto)
+start "ARGUS EYES" cmd /k "python vision_core.py"
+
+:: 4. Inicia a Audição (Whisper) - NOVO!
+start "ARGUS EARS" cmd /k "python listen_core.py"
+
 echo.
-echo [SISTEMA] Iniciando Argus...
-if not exist "venv\Scripts\python.exe" (
-    echo [ERRO] Rode o install.bat primeiro!
-    pause
-    exit /b
-)
-start http://127.0.0.1:5000
-"venv\Scripts\python.exe" app.py
+echo [SISTEMA ONLINE]
+echo Fale com o Argus ou use gestos.
+echo.
 pause

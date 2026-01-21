@@ -42,3 +42,8 @@ kokoro>=0.9.4
 numpy 
 scipy 
 torch
+
+#para fazer o argus ouvir...
+faster-whisper
+SpeechRecognition
+pyaudio
