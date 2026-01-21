@@ -9,6 +9,8 @@ import organizer
 import model_manager
 import personas
 import threading
+import memory_core
+import psutil
 
 import pyautogui
 import base64
@@ -246,8 +248,23 @@ def handle_message(data):
             system_log = "[AÇÃO: Windows Bloqueado]"
         
         # 4. Prompt
+        contexto_memoria = ""
+        try:
+            docs = memory_core.buscar_memoria(user_text)
+            if docs:
+                contexto_memoria = "\nCONHECIMENTO RECUPERADO DA BASE:\n"
+                for i, doc in enumerate(docs):
+                    contexto_memoria += f"-- Fonte: {doc.metadata.get('source', 'Desconhecida')}\n{doc.page_content}\n"
+                print(f"🧠 [RAG] Encontrei {len(docs)} referências relevantes.")
+        except Exception as e:
+            print(f"⚠️ Erro no RAG: {e}")
+
+        # 4. Prompt (Agora Turbinado com Memória)
         prompt_final = f"""
         PERSONA: {brain_data['instruction']}
+        
+        {contexto_memoria}
+        
         LOG DE SISTEMA: {system_log}
         USUÁRIO: {user_text}
         """
@@ -264,6 +281,27 @@ def handle_message(data):
     except Exception as e:
         print(f"Erro: {e}")
         emit('ai_response', {'text': f"Erro: {str(e)}"})
+
+# --- THREAD DE MONITORAMENTO DE SISTEMA ---
+def monitor_system():
+    """Envia CPU e RAM para o Frontend a cada 2s"""
+    while True:
+        try:
+            # Pega uso da CPU e RAM
+            cpu_usage = psutil.cpu_percent(interval=1)
+            ram_usage = psutil.virtual_memory().percent
+
+            # Envia via Socket
+            socketio.emit('system_stats', {
+                'cpu': cpu_usage, 
+                'ram': ram_usage
+            })
+            # O interval=1 já faz o sleep de 1 segundo
+        except:
+            pass
+
+# Inicia o monitoramento em paralelo
+threading.Thread(target=monitor_system, daemon=True).start()
 
 if __name__ == '__main__':
     print("🚀 INICIANDO SERVIDOR ARGUS (Single Process Mode)...")

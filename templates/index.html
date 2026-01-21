@@ -5,71 +5,149 @@
 {% block content %}
 <input type="hidden" id="last-user-query" value="">
 
-<div id="vanta-bg" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;"></div>
+<div class="hud-container">
+    
+    <header class="hud-header">
+        <div class="sys-stat">
+            <span class="label">CPU</span>
+            <div class="bar-container"><div class="bar-fill" style="width: 34%;"></div></div>
+            <span class="value">34%</span>
+        </div>
+        <div class="sys-stat">
+            <span class="label">RAM</span>
+            <div class="bar-container"><div class="bar-fill" style="width: 62%;"></div></div>
+            <span class="value">62%</span>
+        </div>
+        <div class="sys-stat">
+            <span class="label">NET</span>
+            <span class="value text-green">ONLINE</span>
+        </div>
+        <div class="sys-stat right">
+            <span class="label">PROTOCOL</span>
+            <span class="value text-accent">OPENROUTER</span>
+        </div>
+    </header>
 
-<div class="grid-container" style="grid-template-columns: 1fr; background: transparent;"> 
-    <main class="main-content" style="max-width: 900px; margin: 0 auto; width: 100%;">
+    <main class="main-interface">
         
-        <div class="brain-selector" id="brain-container" style="display: flex; gap: 10px; justify-content: center; margin-bottom: 20px;">
-            <button class="brain-btn" id="btn-operator" onclick="manualSwitch('operator')">⚙️ Operator</button> 
-            <button class="brain-btn" id="btn-architect" onclick="manualSwitch('architect')">🎓 Architect</button>
-            <button class="brain-btn" id="btn-strategist" onclick="manualSwitch('strategist')">💼 Strategist</button>
-            <button class="brain-btn" id="btn-polymath" onclick="manualSwitch('polymath')">☕ Polymath</button>
-        </div>
+        <section class="core-column">
+            
+            <div class="brain-display">
+                <div class="brain-selector">
+                    <button class="brain-btn" id="btn-operator" onclick="manualSwitch('operator')">⚙️ OP</button> 
+                    <button class="brain-btn" id="btn-architect" onclick="manualSwitch('architect')">🎓 AR</button>
+                    <button class="brain-btn" id="btn-strategist" onclick="manualSwitch('strategist')">💼 ST</button>
+                    <button class="brain-btn" id="btn-polymath" onclick="manualSwitch('polymath')">☕ PO</button>
+                </div>
 
-        <div class="daily-focus-card" style="text-align: center; background: transparent; border: none; box-shadow: none;">
-            <h2 id="brain-title" style="text-shadow: 0 0 10px rgba(255,255,255,0.5);">{{ brain_name }} Online</h2>
-            <p class="focus-desc" id="status-line">Conectado. Cérebro: {{ brain_name }}</p>
-        </div>
-        
-        <div class="interaction-area" style="background: transparent;">
-            <div id="chatHistory" class="chat-history" style="height: 60vh; overflow-y: auto; padding: 10px;"></div>
-        </div>
+                <h1 id="brain-title" class="glitch-text" data-text="{{ brain_name }}">{{ brain_name }}</h1>
+                <p id="status-line" class="status-blink">SYSTEM READY</p>
+                
+                <canvas id="audio-visualizer" width="400" height="60"></canvas>
+            </div>
 
-        <div class="chat-input-wrapper" style="display: flex; gap: 10px; margin-top: 10px;">
-            <input type="text" id="userMsg" placeholder="Comando para o Argus..." autocomplete="off" autofocus style="flex: 1; padding: 15px; border-radius: 10px; border: 1px solid #444; background: rgba(0,0,0,0.5); color: white;">
-            <button id="btnSend" onclick="sendMessage()" style="padding: 0 20px; border-radius: 10px; border: none; background: #00ff00; color: black; font-weight: bold; cursor: pointer;">➤</button>
-        </div>
+            <div class="interaction-area">
+                <div id="chatHistory" class="chat-history"></div>
+            </div>
+
+            <div class="command-deck">
+                <div class="input-wrapper">
+                    <span class="prompt-symbol">></span>
+                    <input type="text" id="userMsg" placeholder="Aguardando comando..." autocomplete="off" autofocus>
+                    <button id="btnMic" onclick="console.log('Mic clicked')" title="Microfone">🎙️</button>
+                    <button id="btnSend" onclick="sendMessage()">EXECUTE</button>
+                </div>
+            </div>
+        </section>
+
+        <aside class="side-column">
+            <div class="vision-module">
+                <div class="module-header">
+                    <span>OPTICAL SENSOR</span>
+                    <span class="rec-dot"></span>
+                </div>
+                <div class="camera-feed-placeholder" id="camera-feed">
+                    <div class="reticle"></div>
+                    <span class="overlay-text">NO SIGNAL</span>
+                    <img id="live-vision" src="" style="display:none; width:100%; height:100%; object-fit: cover;">
+                </div>
+                <div class="vision-stats">
+                    <span>FPS: 30</span>
+                    <span>GESTURE: <span id="gesture-status">NONE</span></span>
+                </div>
+            </div>
+
+            <div class="log-module">
+                <div class="module-header">SYSTEM LOGS</div>
+                <div class="log-list" id="mini-log">
+                    <div class="log-item">Initialyzing Core... OK</div>
+                    <div class="log-item">Memory Loaded... OK</div>
+                    <div class="log-item">Vision V5 Active</div>
+                    <div class="log-item">Audio Filters... OK</div>
+                </div>
+            </div>
+        </aside>
 
     </main>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js"></script>
-
-<script src="{{ url_for('static', filename='script.js') }}"></script>
-
 <script>
+    // --- LÓGICA DE INICIALIZAÇÃO DO HUD ---
     window.addEventListener('load', function() {
-        try {
-            // Pega a cor do Flask
-            let colorHex = "{{ brain_color }}";
-            let colorInt = 0x3f99ff;
-            
-            if (colorHex && colorHex !== "None") {
-                if(colorHex.startsWith('#')) colorInt = parseInt(colorHex.replace('#', '0x'));
-                else colorInt = parseInt(colorHex);
-            }
+        
+        // 1. Configura a COR DO VANTA baseado no Cérebro Atual
+        let colorHex = "{{ brain_color }}";
+        let colorInt = 0x3b82f6; // Azul padrão (Architect)
+        
+        // Converte hex do python (#ff0000) para int (0xff0000)
+        if (colorHex && colorHex !== "None") {
+            colorInt = parseInt(colorHex.replace('#', '0x'));
+        }
 
-            // Inicia o Vanta GLOBALMENTE
-            if (typeof VANTA !== 'undefined') {
-                vantaEffect = VANTA.NET({
-                    el: "#vanta-bg",
+        // 2. Inicia o Vanta NO ELEMENTO DO BASE.HTML
+        if (typeof VANTA !== 'undefined') {
+            try {
+                window.vantaEffect = VANTA.NET({
+                    el: "#vanta-bg", // Pega o ID que está no base.html
                     mouseControls: true, touchControls: true, gyroControls: false,
                     minHeight: 200.00, minWidth: 200.00, scale: 1.00, scaleMobile: 1.00,
-                    color: colorInt,
+                    color: colorInt,  // Usa a cor dinâmica
                     backgroundColor: 0x050505,
-                    points: 12.00, maxDistance: 22.00, spacing: 16.00
+                    points: 12.00, maxDistance: 22.00, spacing: 18.00
                 });
+            } catch (e) {
+                console.warn("Vanta falhou ao iniciar:", e);
             }
-        } catch(e) {
-            console.warn("Erro ao iniciar Vanta (Check se Three.js está carregado):", e);
         }
+        
+        // 3. Inicia Visualizador de Áudio
+        initVisualizer();
     });
-</script>
 
+    function initVisualizer() {
+        const canvas = document.getElementById('audio-visualizer');
+        if(!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let phase = 0;
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent') || '#00f3ff';
+            ctx.lineWidth = 2;
+
+            for (let x = 0; x < canvas.width; x++) {
+                const y = canvas.height / 2 + 
+                          Math.sin(x * 0.05 + phase) * 10 * Math.sin(phase * 0.5) +
+                          Math.sin(x * 0.1 + phase * 2) * 5;
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            phase += 0.1;
+            requestAnimationFrame(draw);
+        }
+        draw();
+    }
+</script>
 {% endblock %}

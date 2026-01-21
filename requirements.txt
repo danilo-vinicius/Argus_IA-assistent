@@ -47,3 +47,11 @@ torch
 faster-whisper
 SpeechRecognition
 pyaudio
+
+
+pypdf
+langchain-community
+sentence-transformers
+chromadb
+langchain-huggingface
+langchain-chroma
