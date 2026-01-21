@@ -10,6 +10,10 @@ import model_manager
 import personas
 import threading
 
+import pyautogui
+import base64
+from io import BytesIO
+
 # --- IMPORTS HÍBRIDOS ---
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
@@ -64,20 +68,40 @@ class VoiceSocketCallback(BaseCallbackHandler):
     def __init__(self, brain_name):
         self.brain_name = brain_name
         self.text_buffer = ""
+        # Debug: Avisa que iniciou
+        print(f"🎤 [VOICE DEBUG] Callback iniciado para o cérebro: {brain_name}")
         
     def on_llm_new_token(self, token: str, **kwargs) -> None:
-        # 1. Envia pro Frontend (Visual)
+        # 1. Envia pro Frontend (Visual - Letra por letra, bem rápido)
         socketio.emit('ai_stream', {'chunk': token})
         
-        # 2. Acumula para a Voz (Bufferização Inteligente)
+        # 2. Acumula para a Voz (Lógica Melhorada)
         if vocal:
             self.text_buffer += token
-            # Se encontrar pontuação, manda o trecho para o Kokoro falar
-            if any(p in token for p in ['.', '!', '?', ':', '\n']):
-                voice_id = vocal.get_voice_for_brain(self.brain_name)
-                # Acessa o método interno para gerar fila
-                vocal._generate_and_queue(self.text_buffer, voice_id)
-                self.text_buffer = ""
+            
+            # Só fala se encontrar pontuação FINAL (. ? !) ou quebra de linha
+            # Ignora vírgulas por enquanto para deixar a fala mais fluida
+            if any(p in token for p in ['.', '?', '!', '\n']):
+                
+                texto_limpo = self.text_buffer.strip()
+                
+                # --- FILTRO ANTI-GARGALO ---
+                # Só manda falar se a frase tiver mais de 15 letras 
+                # OU se for uma pontuação muito forte (quebra de linha)
+                # Isso evita que ele fale "Sr." ou "Ex." separadamente.
+                if len(texto_limpo) > 15 or '\n' in token:
+                    
+                    voice_id = vocal.get_voice_for_brain(self.brain_name)
+                    
+                    # print(f"🗣️ [FALA] Enviando frase: '{texto_limpo[:30]}...'")
+                    try:
+                        vocal._generate_and_queue(self.text_buffer, voice_id)
+                    except Exception as e:
+                        print(f"❌ [ERRO VOZ] {e}")
+                    
+                    self.text_buffer = "" # Limpa o buffer
+        else:
+            pass
 
 # --- ROTAS FLASK ---
 @app.route('/')
@@ -126,15 +150,52 @@ def handle_vision(data):
     msg = data.get('message')
     print(f"👁️ VISÃO COMPUTACIONAL: {tipo} - {msg}")
     
-    emit('vision_feedback', {'type': tipo, 'msg': msg})
+    # Feedback visual no front
+    emit('status_update', {'msg': f'👁️ {msg}'})
     
     if tipo == 'GESTURE_LOCK':
-        try:
-            automation.bloquear_windows()
-        except:
-            pass
-    elif tipo == 'GESTURE_REPORT':
-        emit('status_update', {'msg': '✌️ Gesto "V" detectado: Iniciando Relatórios...'})
+        automation.bloquear_windows()
+        
+    elif tipo == 'GESTURE_SCREEN':
+        # Gesto Joinha detectado -> Dispara analise de tela
+        print("📸 Iniciando captura de tela via Gesto...")
+        analisar_tela_agora()
+
+def analisar_tela_agora():
+    """Função auxiliar para tirar print e mandar pro Gemini"""
+    try:
+        # 1. Tira o Print
+        screenshot = pyautogui.screenshot()
+        
+        # 2. Converte para Base64 (Para o Gemini ler)
+        buffered = BytesIO()
+        screenshot.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+        
+        # 3. Prepara o Prompt
+        brain = user_session.get("active_brain", personas.BRAINS["architect"])
+        prompt_text = f"""
+        PERSONA: {brain['instruction']}
+        TAREFA: O usuário mandou um print da tela dele. Analise o código, o erro ou o gráfico que está aparecendo.
+        Se for código, procure bugs. Se for Power BI, sugira insights. Seja direto.
+        """
+        
+        # 4. Envia pro Modelo (Com a Imagem!)
+        print("🚀 Enviando imagem para o Gemini...")
+        emit('ai_stream_start', {})
+        
+        voice_callback = VoiceSocketCallback(brain["name"])
+        generate_function = model_manager.get_fallback_model(callbacks=[voice_callback])
+        
+        # Chama a função nova que aceita imagem
+        response = generate_function(prompt_text, image_data=img_str)
+        
+        final_text = response.content
+        emit('ai_stream_end', {'full_text': final_text})
+        
+    except Exception as e:
+        print(f"❌ Erro ao analisar tela: {e}")
+        emit('ai_response', {'text': "Não consegui ver sua tela, chefe."})
 
 @socketio.on('manual_brain_switch')
 def handle_manual_switch(data):
@@ -205,4 +266,7 @@ def handle_message(data):
         emit('ai_response', {'text': f"Erro: {str(e)}"})
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, port=5000)
+    print("🚀 INICIANDO SERVIDOR ARGUS (Single Process Mode)...")
+    # use_reloader=False impede que o Flask crie um processo duplicado
+    # allow_unsafe_werkzeug=True permite rodar em modo dev sem avisos chatos
+    socketio.run(app, debug=True, port=5000, use_reloader=False, allow_unsafe_werkzeug=True)

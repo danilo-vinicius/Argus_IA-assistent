@@ -3,7 +3,7 @@ console.log("📂 Carregando script.js externo...");
 // ==========================================
 // 1. INICIALIZAÇÃO DE VARIÁVEIS GLOBAIS
 // ==========================================
-const socket = io();
+var socket = io();
 let vantaEffect = null;
 const synth = window.speechSynthesis; // Acesso direto, sem redeclarar conflitos
 
@@ -52,7 +52,7 @@ window.sendFeedback = function(score, btn) {
     // Tenta pegar o nome do cérebro de forma segura
     let brainName = "System";
     const titleEl = document.getElementById('brain-title');
-    if(titleEl) brainName = titleEl.innerText.split(' ')[0];
+    if(titleEl) brainName = titleEl.innerText.replace(' Online', '').trim();
 
     // Estilo do botão
     if (score === 1) btn.classList.add('clicked');
