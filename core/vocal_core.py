@@ -113,6 +113,24 @@ class VocalCore:
         # Remove underlines
         text = text.replace('_', ' ')
         return text
+    
+    def generate_audio(self, text, brain="default"):
+        """
+        Gera áudio sob demanda para avisos do sistema (Ex: Notion, Erros, Start).
+        brain: Nome do cérebro para escolher a voz (ou usa a padrão).
+        """
+        if not text: return
+
+        # Escolhe a voz baseada no cérebro (igual fazemos no streaming)
+        voice_id = self.get_voice_for_brain(brain)
+        
+        print(f"🗣️ [SISTEMA FALA] Gerando áudio: '{text[:30]}...' usando {voice_id}")
+        
+        # Chama a função interna que já existe
+        try:
+            self._generate_and_queue(text, voice_id)
+        except Exception as e:
+            print(f"❌ Erro ao gerar áudio direto: {e}")
 
     def _generate_and_queue(self, text, voice):
         if not self.pipeline: return

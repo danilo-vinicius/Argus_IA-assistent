@@ -176,9 +176,12 @@ def handle_check_tasks(data):
     
     if not tarefas:
         msg = "Sr. Danilo, consultei o banco oficial e não encontrei nenhuma pendência com status 'Não iniciado'. Estamos livres!"
-        emit('ai_stream', {'chunk': msg}) # Manda texto picado (stream)
-        emit('ai_stream_end', {})         # Finaliza
-        # Se estiver com voz ativa, fala também
+        
+        # --- CORREÇÃO AQUI ---
+        emit('ai_stream_start', {})      # <--- 1. CRIA O BALÃO
+        emit('ai_stream', {'chunk': msg}) # <--- 2. ESCREVE
+        emit('ai_stream_end', {})         # <--- 3. FINALIZA
+        
         if voice_active and vocal: vocal.generate_audio(msg)
         return
 
@@ -191,14 +194,15 @@ def handle_check_tasks(data):
     relatorio += "\n\n🤔 *Gostaria que eu gerasse um plano de ação para a tarefa de maior prioridade?*"
 
     # 3. Envia para o Frontend (Chat)
-    # Mandamos como se fosse uma resposta da IA
-    emit('ai_stream', {'chunk': relatorio})
-    emit('ai_stream_end', {})
+    # --- CORREÇÃO AQUI TAMBÉM ---
+    emit('ai_stream_start', {})          # <--- 1. CRIA O BALÃO
+    emit('ai_stream', {'chunk': relatorio}) # <--- 2. ESCREVE
+    emit('ai_stream_end', {})            # <--- 3. FINALIZA
 
-    # 4. (Opcional) Leitura em Voz Alta (Apenas o resumo)
+    # 4. Leitura em Voz Alta
     if voice_active and vocal:
-        resumo_voz = f"Encontrei {len(tarefas)} tarefas pendentes. A mais crítica é: {tarefas[0]['title']}. Quer que eu planeje isso no Playground?"
-        vocal.generate_audio(resumo_voz)
+        resumo_voz = f"Encontrei {len(tarefas)} tarefas pendentes. A mais crítica é: {tarefas[0]['title']}."
+        vocal.generate_audio(resumo_voz, brain="strategist")
 
 # --- CONTROLE LÓGICO DE VOZ (MUTE) ---
 @socketio.on('toggle_voice')
@@ -336,6 +340,17 @@ def handle_message(data):
     texto_lower = user_text.lower()
     source = data.get('source', 'text') # O front manda 'text', o listen_core mandará 'audio'
     
+    # --- TRAVA DE SEGURANÇA PARA COMANDOS ---
+    # Se for um comando (começa com /), ignora. 
+    if user_text.strip().startswith('/'):
+        print(f"🛑 [ARGUS] Comando '{user_text}' interceptado. LLM ignorado.")
+        return 
+   
+    # --------------------------------------
+
+    texto_lower = user_text.lower()
+    source = data.get('source', 'text')
+
     # 1. Verifica Mute (Lógica que já fizemos)
     if source == 'audio' and not mic_active:
         return

@@ -12,11 +12,20 @@ load_dotenv()
 # Todos abaixo possuem tier "free" no OpenRouter.
 
 MODEL_ROSTER = [
-    "google/gemini-2.0-flash-lite-preview-02-05:free", # Se esse falhar, ele pula pro próximo
-    "google/gemini-2.0-flash-exp:free",
-    "google/gemini-flash-1.5-8b", # Muito rápido e estável
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "mistralai/mistral-7b-instruct:free"
+    # 1. Gemini 1.5 Flash 8B (Versão leve, cota separada da versão Pro/Exp)
+    "google/gemini-flash-1.5-8b", 
+    
+    # 2. Mistral Nemo (Muito estável e rápido)
+    "mistralai/mistral-nemo:free",
+    
+    # 3. Qwen 2.5 7B (Modelo chinês excelente para código e lógica)
+    "qwen/qwen-2.5-7b-instruct:free",
+    
+    # 4. Microsoft Phi-3 (Modelo pequeno da Microsoft, quase sempre livre)
+    "microsoft/phi-3-medium-128k-instruct:free",
+    
+    # 5. Liquid LFM (Modelo novo, pouca gente usa, então está livre)
+    "liquid/lfm-40b:free"
 ]
 
 # Modelos que ACEITAM IMAGEM (Vision Capable)

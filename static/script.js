@@ -16,37 +16,40 @@ window.sendMessage = function() {
     const msg = input.value;
     if (!msg.trim()) return;
 
+    // --- 1. DETECTA COMANDOS ESPECIAIS (Prioridade Alta) ---
+    if (msg.toLowerCase() === '/notion' || msg.toLowerCase().includes('verificar tarefas')) {
+        // Feedback Visual
+        const chatBox = document.getElementById('chatHistory');
+        chatBox.innerHTML += `<div class="msg user">${msg}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+        
+        // Dispara o evento Python direto
+        console.log("🧠 Disparando Check de Tarefas...");
+        socket.emit('check_tasks', {});
+        
+        // Limpa e Encerra (Não manda pro LLM)
+        input.value = "";
+        return; 
+    }
+
+    // --- 2. ENVIO NORMAL PARA A I.A. ---
+    
     // Salva para feedback futuro
     const hiddenInput = document.getElementById('last-user-query');
     if(hiddenInput) hiddenInput.value = msg;
 
-    // Adiciona na UI imediatamente (Feedback instantâneo)
+    // Adiciona na UI imediatamente
     const chatBox = document.getElementById('chatHistory');
-    chatBox.innerHTML += `
-        <div class="msg user">${msg}</div>
-    `;
+    chatBox.innerHTML += `<div class="msg user">${msg}</div>`;
     
-    // Envia Socket
+    // Envia Socket pro Cérebro (App.py)
     socket.emit('user_message', { 'message': msg });
     
     // Limpeza
     input.value = "";
     chatBox.scrollTop = chatBox.scrollHeight;
+}; 
 
-    // --- COMANDO SECRETO DO NOTION ---
-    if (msg.toLowerCase() === '/notion' || msg.toLowerCase().includes('verificar tarefas')) {
-        // Mostra no chat que você pediu
-        const chatBox = document.getElementById('chatHistory');
-        chatBox.innerHTML += `<div class="msg user">${msg}</div>`;
-        
-        // Dispara o evento Python direto
-        console.log("🧠 Disparando Check de Tarefas...");
-        socket.emit('check_tasks', {});
-    };
-
-        
-        input.value = "";
-        return; // Para aqui, não manda pro LLM normal
 
 // Troca Manual de Cérebro
 window.manualSwitch = function(brainKey) {
