@@ -26,6 +26,10 @@ from brain import model_manager, personas, memory_core
 from core.vocal_core import VocalCore
 from data.database import DataManager
 
+# --- IMPORT NOTION ---
+from skills.notion_manager import NotionManager
+
+
 
 load_dotenv()
 
@@ -72,6 +76,7 @@ if not scheduler.running:
 vision_process = None
 voice_active = True    # <-- MUDE PARA TRUE (Começa falando)
 mic_active = True      # <-- NOVA VARIÁVEL (Começa ouvindo)
+notion_brain = NotionManager() # <-- O Argus já nasce conectado
 
 
 # --- CLASSE DE STREAMING (VISUAL + ÁUDIO) ---
@@ -160,6 +165,40 @@ def handle_ears_toggle(data):
         mic_active = False
         print("🔕 [SISTEMA] Microfone MUTADO.")
         emit('ears_status', {'status': 'offline'}, broadcast=True)
+
+# --- COMANDO DE INTELIGÊNCIA: NOTION ---
+@socketio.on('check_tasks')
+def handle_check_tasks(data):
+    print("🧠 [ARGUS] Consultando Banco de Dados Corporativo...")
+    
+    # 1. Usa a skill para ler as tarefas
+    tarefas = notion_brain.get_pending_tasks()
+    
+    if not tarefas:
+        msg = "Sr. Danilo, consultei o banco oficial e não encontrei nenhuma pendência com status 'Não iniciado'. Estamos livres!"
+        emit('ai_stream', {'chunk': msg}) # Manda texto picado (stream)
+        emit('ai_stream_end', {})         # Finaliza
+        # Se estiver com voz ativa, fala também
+        if voice_active and vocal: vocal.generate_audio(msg)
+        return
+
+    # 2. Formata um relatório para a IA processar
+    relatorio = "📋 **RELATÓRIO DE PENDÊNCIAS BRASFORT**:\n\n"
+    for t in tarefas:
+        icon = "🔴" if t['priority'] == "Alta" else "🟡" if t['priority'] == "Média" else "🔵"
+        relatorio += f"{icon} **{t['title']}** (Prioridade: {t['priority']})\n"
+    
+    relatorio += "\n\n🤔 *Gostaria que eu gerasse um plano de ação para a tarefa de maior prioridade?*"
+
+    # 3. Envia para o Frontend (Chat)
+    # Mandamos como se fosse uma resposta da IA
+    emit('ai_stream', {'chunk': relatorio})
+    emit('ai_stream_end', {})
+
+    # 4. (Opcional) Leitura em Voz Alta (Apenas o resumo)
+    if voice_active and vocal:
+        resumo_voz = f"Encontrei {len(tarefas)} tarefas pendentes. A mais crítica é: {tarefas[0]['title']}. Quer que eu planeje isso no Playground?"
+        vocal.generate_audio(resumo_voz)
 
 # --- CONTROLE LÓGICO DE VOZ (MUTE) ---
 @socketio.on('toggle_voice')

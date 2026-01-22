@@ -32,7 +32,21 @@ window.sendMessage = function() {
     // Limpeza
     input.value = "";
     chatBox.scrollTop = chatBox.scrollHeight;
-};
+
+    // --- COMANDO SECRETO DO NOTION ---
+    if (msg.toLowerCase() === '/notion' || msg.toLowerCase().includes('verificar tarefas')) {
+        // Mostra no chat que você pediu
+        const chatBox = document.getElementById('chatHistory');
+        chatBox.innerHTML += `<div class="msg user">${msg}</div>`;
+        
+        // Dispara o evento Python direto
+        console.log("🧠 Disparando Check de Tarefas...");
+        socket.emit('check_tasks', {});
+    };
+
+        
+        input.value = "";
+        return; // Para aqui, não manda pro LLM normal
 
 // Troca Manual de Cérebro
 window.manualSwitch = function(brainKey) {
