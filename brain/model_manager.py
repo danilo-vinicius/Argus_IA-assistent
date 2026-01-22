@@ -12,16 +12,10 @@ load_dotenv()
 # Todos abaixo possuem tier "free" no OpenRouter.
 
 MODEL_ROSTER = [
-    # 1. Google Gemini 2.0 Flash Lite (Rápido, Multimodal, Grátis)
-    "google/gemini-2.0-flash-lite-preview-02-05:free",
-    
-    # 2. Llama 3.3 70B (Muito inteligente, mas apenas Texto)
+    "google/gemini-2.0-flash-lite-preview-02-05:free", # Se esse falhar, ele pula pro próximo
+    "google/gemini-2.0-flash-exp:free",
+    "google/gemini-flash-1.5-8b", # Muito rápido e estável
     "meta-llama/llama-3.3-70b-instruct:free",
-    
-    # 3. DeepSeek R1 (Ótimo raciocínio, Texto)
-    "deepseek/deepseek-r1:free",
-    
-    # 4. Mistral 7B (Leve e rápido, Texto)
     "mistralai/mistral-7b-instruct:free"
 ]
 

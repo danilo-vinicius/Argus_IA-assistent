@@ -61,19 +61,42 @@
         </section>
 
         <aside class="side-column">
-            <div class="vision-module">
-                <div class="module-header">
-                    <span>OPTICAL SENSOR</span>
-                    <span class="rec-dot"></span>
+                <div class="vision-module">
+                    <div class="module-header">
+                        <span>OPTICAL SENSOR</span>
+                        <label class="switch">
+                            <input type="checkbox" id="vision-toggle" onclick="toggleVisionModule()">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+            
+                    <div class="camera-feed-placeholder" id="camera-feed">
+                        <div class="reticle"></div>
+                        <span class="overlay-text">SYSTEM OFFLINE</span> <img id="live-vision" src="" style="display:none; width:100%; height:100%; object-fit: cover;">
+                    </div>
+
+                <div class="audio-module">
+                <div class="module-header">AUDIO SENSORS</div>
+                
+                <div class="sensor-row">
+                    <span class="sensor-label">MICROPHONE (IN)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="ears-toggle" onclick="toggleEars()">
+                        <span class="slider round"></span>
+                    </label>
                 </div>
-                <div class="camera-feed-placeholder" id="camera-feed">
-                    <div class="reticle"></div>
-                    <span class="overlay-text">NO SIGNAL</span>
-                    <img id="live-vision" src="" style="display:none; width:100%; height:100%; object-fit: cover;">
+
+                <div class="sensor-row">
+                    <span class="sensor-label">VOCALIZER (OUT)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="voice-toggle" onclick="toggleVoice()">
+                        <span class="slider round"></span>
+                    </label>
                 </div>
-                <div class="vision-stats">
-                    <span>FPS: 30</span>
-                    <span>GESTURE: <span id="gesture-status">NONE</span></span>
+
+                <div class="audio-stats">
+                    <div id="mic-status" class="status-text">MIC: OFFLINE</div>
+                    <div id="voice-status" class="status-text">VOICE: MUTED</div>
                 </div>
             </div>
 

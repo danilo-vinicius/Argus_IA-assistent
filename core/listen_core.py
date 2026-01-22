@@ -38,7 +38,7 @@ def run_listener():
     # --- AJUSTE FINO DE SENSIBILIDADE ---
     # Se estiver captando muito ruído, AUMENTE este valor (Ex: 3000, 4000)
     # Se não estiver te ouvindo, DIMINUA (Ex: 1000, 500)
-    recognizer.energy_threshold = 2000  
+    recognizer.energy_threshold = 500  
     
     # Desliguei o dinâmico pq ele costuma baixar demais a régua no silêncio
     recognizer.dynamic_energy_threshold = False 
@@ -95,7 +95,10 @@ def run_listener():
 
                     # Envia
                     try:
-                        sio.emit('user_message', {'message': final_text})
+                        if final_text:
+                            print(f"🗣️ Enviando: {final_text}")
+                            # ADICIONE O 'source': 'audio' AQUI:
+                            sio.emit('user_message', {'message': final_text, 'source': 'audio'})
                     except:
                         pass
                 else:

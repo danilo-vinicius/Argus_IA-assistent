@@ -132,9 +132,9 @@ def run_vision():
                 pass
 
             # Janela Local (Opcional - Pode comentar se quiser só no site)
-            cv2.imshow('Argus Vision Core', image)
-            if cv2.waitKey(5) & 0xFF == ord('q'):
-                break
+            #cv2.imshow('Argus Vision Core', image)
+            #if cv2.waitKey(5) & 0xFF == ord('q'):
+                #break
 
     cap.release()
     cv2.destroyAllWindows()

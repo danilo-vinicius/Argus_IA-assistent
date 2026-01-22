@@ -2,26 +2,20 @@
 TITLE ARGUS LAUNCHER
 
 echo ===================================================
-echo    INICIANDO ARGUS SYSTEM (Brain + Vision + Voice)
+echo    INICIANDO ARGUS SYSTEM (Always On Mode)
 echo ===================================================
 
-:: 1. Ativa o ambiente virtual
 call venv\Scripts\activate
 
-:: 2. Inicia o Servidor (Cérebro + Voz TTS)
+:: 1. Cérebro (Orquestrador + Voz)
 start "ARGUS BRAIN" cmd /k "python app.py"
 
-:: Aguarda o servidor subir um pouco
-timeout /t 5
+:: 2. Audição (Sempre ouvindo)
+start "ARGUS EARS" cmd /k "python core/listen_core.py"
 
-:: 3. Inicia a Visão (Gesto)
-start "ARGUS EYES" cmd /k "python vision_core.py"
-
-:: 4. Inicia a Audição (Whisper) - NOVO!
-start "ARGUS EARS" cmd /k "python listen_core.py"
+:: 3. Visão (Continua manual pelo site, pois gasta muita bateria/processamento)
+:: (Nenhuma linha aqui, o site cuida disso)
 
 echo.
-echo [SISTEMA ONLINE]
-echo Fale com o Argus ou use gestos.
-echo.
+echo [SISTEMA ONLINE] Acessar: http://localhost:5000
 pause

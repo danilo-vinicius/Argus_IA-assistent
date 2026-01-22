@@ -63,15 +63,24 @@ socket.on('brain_change', (data) => {
     let colorHex = "#3b82f6"; // Valor padrão (Architect Blue)
     let colorInt = 0x3b82f6;
 
-    // 1. Lógica Híbrida (Aceita String "#FF..." ou Número 1674...)
-    if (typeof rawColor === 'string' && rawColor.startsWith('#')) {
-        // Se veio como texto (Ex: "#FF0000")
-        colorHex = rawColor;
-        colorInt = parseInt(colorHex.replace('#', '0x'));
-    } else if (typeof rawColor === 'number') {
-        // Se veio como número (Ex: 16746496)
+    // 1. Lógica Híbrida (Aceita "#FF...", "0xFF..." ou Número)
+    if (typeof rawColor === 'string') {
+        if (rawColor.startsWith('#')) {
+            // Veio como CSS "#ff0000"
+            colorHex = rawColor;
+            colorInt = parseInt(colorHex.replace('#', '0x'));
+        } 
+        else if (rawColor.startsWith('0x')) {
+            // --- AQUI ESTAVA O PROBLEMA ---
+            // Veio como JSON "0xff0000"
+            colorHex = rawColor.replace('0x', '#'); // Transforma em #ff0000 para o CSS
+            colorInt = parseInt(rawColor);          // O parseInt entende string "0x..." nativamente
+        }
+    } 
+    else if (typeof rawColor === 'number') {
+        // Veio como número (Ex: 16746496)
         colorInt = rawColor;
-        // Converte número para hex string (Ex: "ff0000") e adiciona o #
+        // Converte número para hex string e adiciona o #
         colorHex = "#" + rawColor.toString(16).padStart(6, '0');
     }
 
@@ -173,6 +182,110 @@ socket.on('status_update', (data) => {
                 setTimeout(() => sensorDot.style.backgroundColor = 'red', 500);
             }
         }
+    }
+});
+
+// ==========================================
+// 6. CONTROLE DO MÓDULO DE VISÃO
+// ==========================================
+
+function toggleVisionModule() {
+    const checkbox = document.getElementById('vision-toggle');
+    const action = checkbox.checked ? 'start' : 'stop';
+    
+    console.log(`🔌 Enviando comando de visão: ${action.toUpperCase()}`);
+    socket.emit('toggle_vision', { 'action': action });
+    
+    // Se desligou, limpa a tela imediatamente
+    if (action === 'stop') {
+        const img = document.getElementById('live-vision');
+        const text = document.querySelector('.overlay-text');
+        if(img) img.style.display = 'none';
+        if(text) {
+            text.style.display = 'block';
+            text.innerText = "SYSTEM OFFLINE";
+        }
+    }
+}
+
+// Confirmação do Servidor (Para garantir que ligou mesmo)
+socket.on('vision_status', (data) => {
+    const checkbox = document.getElementById('vision-toggle');
+    const text = document.querySelector('.overlay-text');
+    const img = document.getElementById('live-vision'); // <--- Pegamos o elemento da imagem
+
+    if (data.status === 'online') {
+        checkbox.checked = true;
+        if(text) {
+            text.style.display = 'block';
+            text.innerText = "INITIALIZING...";
+        }
+    } else {
+        // --- LÓGICA DE DESLIGAMENTO ---
+        checkbox.checked = false;
+        
+        // 1. Mostra o texto "SYSTEM OFFLINE"
+        if(text) {
+            text.style.display = 'block'; 
+            text.innerText = "SYSTEM OFFLINE";
+            text.style.color = "#666"; // Volta cor cinza original
+        }
+
+        // 2. Esconde a imagem congelada
+        if(img) {
+            img.style.display = 'none';
+            img.src = ""; // Limpa o buffer da imagem
+        }
+    }
+});
+
+// ==========================================
+// 7. CONTROLE DE ÁUDIO (Ouvidos e Voz)
+// ==========================================
+
+// --- OUVIDOS (Microfone) ---
+function toggleEars() {
+    const checkbox = document.getElementById('ears-toggle');
+    const action = checkbox.checked ? 'start' : 'stop';
+    console.log(`👂 Enviando comando ouvidos: ${action}`);
+    socket.emit('toggle_ears', { 'action': action });
+}
+
+socket.on('ears_status', (data) => {
+    const checkbox = document.getElementById('ears-toggle');
+    const statusText = document.getElementById('mic-status');
+    
+    if (data.status === 'online') {
+        checkbox.checked = true;
+        statusText.innerText = "MIC: LISTENING";
+        statusText.style.color = "var(--accent)";
+    } else {
+        checkbox.checked = false;
+        statusText.innerText = "MIC: OFFLINE";
+        statusText.style.color = "#666";
+    }
+});
+
+// --- VOZ (Sintetizador) ---
+function toggleVoice() {
+    const checkbox = document.getElementById('voice-toggle');
+    const action = checkbox.checked ? 'start' : 'stop';
+    console.log(`🗣️ Enviando comando voz: ${action}`);
+    socket.emit('toggle_voice', { 'action': action });
+}
+
+socket.on('voice_status', (data) => {
+    const checkbox = document.getElementById('voice-toggle');
+    const statusText = document.getElementById('voice-status');
+    
+    if (data.status === 'online') {
+        checkbox.checked = true;
+        statusText.innerText = "VOICE: ACTIVE";
+        statusText.style.color = "var(--accent)";
+    } else {
+        checkbox.checked = false;
+        statusText.innerText = "VOICE: MUTED";
+        statusText.style.color = "#666";
     }
 });
 

@@ -1,20 +1,18 @@
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 from apscheduler.schedulers.background import BackgroundScheduler
-from database import DataManager
+
 import datetime
 import os
-import automation
-import organizer
-import model_manager
-import personas
 import threading
-import memory_core
 import psutil
-
 import pyautogui
 import base64
 from io import BytesIO
+
+# --- abrir programas python ---
+import subprocess
+import sys
 
 # --- IMPORTS HÍBRIDOS ---
 from langchain_chroma import Chroma
@@ -22,8 +20,12 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_core.callbacks import BaseCallbackHandler
 from dotenv import load_dotenv
 
-# --- IMPORT DA VOZ ---
-from vocal_core import VocalCore
+# --- IMPORT DA PACOTES ---
+from skills import automation, organizer
+from brain import model_manager, personas, memory_core
+from core.vocal_core import VocalCore
+from data.database import DataManager
+
 
 load_dotenv()
 
@@ -65,7 +67,14 @@ if not scheduler.running:
     scheduler.add_job(func=rotina_de_curiosidade, trigger="interval", minutes=60)
     scheduler.start()
 
-# --- NOVA CLASSE DE STREAMING (VISUAL + ÁUDIO) ---
+
+# --- CONTROLE DE PROCESSOS (VISION) ---
+vision_process = None
+voice_active = True    # <-- MUDE PARA TRUE (Começa falando)
+mic_active = True      # <-- NOVA VARIÁVEL (Começa ouvindo)
+
+
+# --- CLASSE DE STREAMING (VISUAL + ÁUDIO) ---
 class VoiceSocketCallback(BaseCallbackHandler):
     def __init__(self, brain_name):
         self.brain_name = brain_name
@@ -74,11 +83,11 @@ class VoiceSocketCallback(BaseCallbackHandler):
         print(f"🎤 [VOICE DEBUG] Callback iniciado para o cérebro: {brain_name}")
         
     def on_llm_new_token(self, token: str, **kwargs) -> None:
-        # 1. Envia pro Frontend (Visual - Letra por letra, bem rápido)
         socketio.emit('ai_stream', {'chunk': token})
         
-        # 2. Acumula para a Voz (Lógica Melhorada)
-        if vocal:
+        # --- SÓ FALA SE O BOTÃO ESTIVER LIGADO ---
+        global voice_active
+        if vocal and voice_active:  # <--- MUDANÇA AQUI
             self.text_buffer += token
             
             # Só fala se encontrar pontuação FINAL (. ? !) ou quebra de linha
@@ -104,6 +113,69 @@ class VoiceSocketCallback(BaseCallbackHandler):
                     self.text_buffer = "" # Limpa o buffer
         else:
             pass
+
+
+
+# --- SENTIDOS DO ARGUS ---
+@socketio.on('toggle_vision')
+def handle_vision_toggle(data):
+    global vision_process
+    action = data.get('action')
+    
+    # Define o caminho do script usando o Python do VENV atual
+    script_path = os.path.join("core", "vision_core.py")
+    
+    if action == 'start':
+        if vision_process is None:
+            print("👁️ [SISTEMA] Iniciando Módulo de Visão...")
+            # sys.executable garante que usa o python do venv
+            try:
+                vision_process = subprocess.Popen([sys.executable, script_path])
+                emit('vision_status', {'status': 'online'}, broadcast=True)
+            except Exception as e:
+                print(f"❌ Erro ao iniciar visão: {e}")
+        else:
+            print("⚠️ Visão já está rodando.")
+
+    elif action == 'stop':
+        if vision_process:
+            print("👁️ [SISTEMA] Desligando Módulo de Visão...")
+            vision_process.terminate() # Mata o processo suavemente
+            vision_process = None
+            emit('vision_status', {'status': 'offline'}, broadcast=True)
+        else:
+            print("⚠️ Visão já está desligada.")
+
+# --- CONTROLE LÓGICO DE MICROFONE (MUTE) ---
+@socketio.on('toggle_ears')
+def handle_ears_toggle(data):
+    global mic_active
+    action = data.get('action')
+    
+    if action == 'start':
+        mic_active = True
+        print("👂 [SISTEMA] Microfone DESMUTADO.")
+        emit('ears_status', {'status': 'online'}, broadcast=True)
+    else:
+        mic_active = False
+        print("🔕 [SISTEMA] Microfone MUTADO.")
+        emit('ears_status', {'status': 'offline'}, broadcast=True)
+
+# --- CONTROLE LÓGICO DE VOZ (MUTE) ---
+@socketio.on('toggle_voice')
+def handle_voice_toggle(data):
+    global voice_active
+    action = data.get('action')
+    
+    if action == 'start':
+        voice_active = True
+        print("🗣️ [SISTEMA] Voz ATIVADA.")
+        emit('voice_status', {'status': 'online'}, broadcast=True)
+    else:
+        voice_active = False
+        if vocal: vocal.stop()
+        print("🤫 [SISTEMA] Voz MUTADA.")
+        emit('voice_status', {'status': 'offline'}, broadcast=True)
 
 # --- ROTAS FLASK ---
 @app.route('/')
@@ -163,6 +235,15 @@ def handle_vision(data):
         print("📸 Iniciando captura de tela via Gesto...")
         analisar_tela_agora()
 
+@socketio.on('video_stream')
+def handle_video_stream(data):
+    """
+    Ponte de Vídeo:
+    Recebe a imagem do Python (Vision Core) e retransmite para o Browser.
+    """
+    # broadcast=True garante que TODOS os navegadores abertos vejam a imagem
+    emit('video_stream', data, broadcast=True)
+
 def analisar_tela_agora():
     """Função auxiliar para tirar print e mandar pro Gemini"""
     try:
@@ -214,6 +295,12 @@ def handle_manual_switch(data):
 def handle_message(data):
     user_text = data.get('message')
     texto_lower = user_text.lower()
+    source = data.get('source', 'text') # O front manda 'text', o listen_core mandará 'audio'
+    
+    # SE VEIO DE ÁUDIO E O MIC TÁ MUTADO, IGNORA
+    if source == 'audio' and not mic_active:
+        print(f"🔕 Áudio ignorado (Mic Mutado): {user_text}")
+        return
     
     # 1. Definição de Cérebro (Com persistência)
     if "código" in texto_lower or "python" in texto_lower:
@@ -304,7 +391,23 @@ def monitor_system():
 threading.Thread(target=monitor_system, daemon=True).start()
 
 if __name__ == '__main__':
-    print("🚀 INICIANDO SERVIDOR ARGUS (Single Process Mode)...")
-    # use_reloader=False impede que o Flask crie um processo duplicado
-    # allow_unsafe_werkzeug=True permite rodar em modo dev sem avisos chatos
-    socketio.run(app, debug=True, port=5000, use_reloader=False, allow_unsafe_werkzeug=True)
+    print("🚀 INICIANDO SERVIDOR ARGUS...")
+
+    # --- AUTO-START DOS OUVIDOS (MODO FANTASMA) ---
+    # Isso define que a janela preta NÃO deve aparecer
+    if sys.platform == "win32":
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    else:
+        startupinfo = None
+
+    print("👂 Iniciando Serviço de Audição em Background...")
+    # Inicia o listen_core.py escondido
+    ears_process = subprocess.Popen(
+        [sys.executable, "core/listen_core.py"],
+        startupinfo=startupinfo,
+        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+    )
+
+    # Inicia o Servidor Web
+    socketio.run(app, debug=False, port=5000, use_reloader=False, allow_unsafe_werkzeug=True)

@@ -3,6 +3,7 @@ import sys
 import threading
 import queue
 import time
+import platform
 import sounddevice as sd
 import numpy as np
 import re  # Import necessário para limpar o texto (Regex)
@@ -10,27 +11,43 @@ import re  # Import necessário para limpar o texto (Regex)
 # ==============================================================================
 # 🔧 CONFIGURAÇÃO PORTÁTIL (V2 - BLINDADA)
 # ==============================================================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DLL_PATH = os.path.join(BASE_DIR, "libespeak-ng.dll")
-DATA_PATH = os.path.join(BASE_DIR, "espeak-ng-data")
+# 1. Pega a pasta onde este arquivo está (pasta core/)
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-print(f"🔍 [DIAGNOSTICO] Verificando estrutura de arquivos:")
-print(f"   📂 Raiz: {BASE_DIR}")
-print(f"   📄 DLL Alvo: {DLL_PATH} -> {'✅ Existe' if os.path.exists(DLL_PATH) else '❌ NÃO ACHEI'}")
-print(f"   📂 DATA Alvo: {DATA_PATH} -> {'✅ Existe' if os.path.exists(DATA_PATH) else '❌ NÃO ACHEI'}")
+# 2. Pega a Raiz do Projeto (sobe um nível: core/ -> Assistente_Virtual/)
+BASE_DIR = os.path.dirname(CURRENT_DIR)
 
-if os.path.exists(DLL_PATH) and os.path.exists(DATA_PATH):
-    print(f"✅ [CONFIG] Ativando Modo Portátil!")
-    os.environ["PHONEMIZER_ESPEAK_LIBRARY"] = DLL_PATH
-    os.environ["ESPEAK_DATA_PATH"] = DATA_PATH
-    os.environ["PATH"] = BASE_DIR + ";" + os.environ["PATH"]
-    if hasattr(os, 'add_dll_directory'):
-        try:
-            os.add_dll_directory(BASE_DIR)
-        except:
-            pass
-else:
-    print("❌ [ERRO CRÍTICO] Falta arquivo DLL ou pasta espeak-ng-data na raiz!")
+# 3. Define onde buscar as DLLs (Pasta 'libs' ou Raiz)
+# Tenta achar na pasta libs primeiro
+DLL_PATH = os.path.join(BASE_DIR, "libs", "libespeak-ng.dll")
+DATA_PATH = os.path.join(BASE_DIR, "libs", "espeak-ng-data")
+
+# Se não achar na libs, tenta na raiz (fallback)
+if not os.path.exists(DLL_PATH):
+    DLL_PATH = os.path.join(BASE_DIR, "libespeak-ng.dll")
+    DATA_PATH = os.path.join(BASE_DIR, "espeak-ng-data")
+
+# --- DIAGNÓSTICO ---
+print(f"🔍 [DIAGNOSTICO] Vocal Core Iniciando...")
+print(f"   📂 Raiz do Projeto: {BASE_DIR}")
+print(f"   📂 DLL Esperada em: {DLL_PATH}")
+
+# --- PREPARAÇÃO DO AMBIENTE ---
+if platform.system() == "Windows":
+    # Adiciona o caminho da DLL ao PATH do sistema temporariamente
+    dll_dir = os.path.dirname(DLL_PATH)
+    if os.path.exists(dll_dir):
+        os.environ["PHONEMIZER_ESPEAK_LIBRARY"] = DLL_PATH
+        os.environ["PHONEMIZER_ESPEAK_PATH"] = dll_dir
+    else:
+        print(f"❌ ERRO CRÍTICO: Não encontrei a pasta da DLL em: {dll_dir}")
+
+# Tenta importar o phonemizer agora que o path está configurado
+try:
+    from phonemizer.backend.espeak.wrapper import EspeakWrapper
+    EspeakWrapper.set_library(DLL_PATH)
+except Exception as e:
+    print(f"⚠️ Aviso: Erro ao configurar wrapper do Espeak: {e}")
 
 # ==============================================================================
 
