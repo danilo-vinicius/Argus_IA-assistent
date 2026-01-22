@@ -290,6 +290,22 @@ socket.on('voice_status', (data) => {
 });
 
 // ==========================================
+// 8. SINCRONIA DE CHAT (Espelho de Voz)
+// ==========================================
+
+socket.on('mirror_user_message', (data) => {
+    const chatBox = document.getElementById('chatHistory');
+    
+    // Cria o balão do usuário (igual quando você digita)
+    chatBox.innerHTML += `
+        <div class="msg user">${data.message} <span style="font-size:0.7em">🎤</span></div>
+    `;
+    
+    // Rola para baixo
+    chatBox.scrollTop = chatBox.scrollHeight;
+});
+
+// ==========================================
 // 5. RECEPÇÃO DE DADOS EM TEMPO REAL
 // ==========================================
 

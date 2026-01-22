@@ -297,10 +297,14 @@ def handle_message(data):
     texto_lower = user_text.lower()
     source = data.get('source', 'text') # O front manda 'text', o listen_core mandará 'audio'
     
-    # SE VEIO DE ÁUDIO E O MIC TÁ MUTADO, IGNORA
+    # 1. Verifica Mute (Lógica que já fizemos)
     if source == 'audio' and not mic_active:
-        print(f"🔕 Áudio ignorado (Mic Mutado): {user_text}")
         return
+
+    # 2. O NOVO CÓDIGO (ESPELHO)
+    # Se veio do áudio, avisa o site para desenhar o balão do usuário
+    if source == 'audio':
+        emit('mirror_user_message', {'message': user_text})
     
     # 1. Definição de Cérebro (Com persistência)
     if "código" in texto_lower or "python" in texto_lower:
