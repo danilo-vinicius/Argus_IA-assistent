@@ -13,10 +13,10 @@ load_dotenv()
 
 MODEL_ROSTER = [
     # 1. Gemini 1.5 Flash 8B (Versão leve, cota separada da versão Pro/Exp)
-    "google/gemini-flash-1.5-8b", 
+    "nvidia/nemotron-3-nano-30b-a3b:free", 
     
     # 2. Mistral Nemo (Muito estável e rápido)
-    "mistralai/mistral-nemo:free",
+    "liquid/lfm-2.5-1.2b-thinking:free",
     
     # 3. Qwen 2.5 7B (Modelo chinês excelente para código e lógica)
     "qwen/qwen-2.5-7b-instruct:free",
