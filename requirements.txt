@@ -56,3 +56,5 @@ chromadb
 langchain-huggingface
 langchain-chroma
 langchain-openai
+
+notion-client==2.2.1

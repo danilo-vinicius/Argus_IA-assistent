@@ -1,6 +1,9 @@
 import os
+import notion_client
 from notion_client import Client
 from datetime import datetime
+
+# (Removi o print de versão que estava dando erro)
 
 class NotionManager:
     def __init__(self):
@@ -29,7 +32,7 @@ class NotionManager:
             print("⚠️ [NOTION] Chave Playground não encontrada.")
 
     # ==========================================================
-    # 🔍 LEITURA (GET) - BANCO OFICIAL (Corrigido PT-BR)
+    # 🔍 LEITURA (GET) - BANCO OFICIAL
     # ==========================================================
     def get_pending_tasks(self):
         """Lê tarefas pendentes no banco do trabalho."""
@@ -38,13 +41,12 @@ class NotionManager:
         print(f"📡 Lendo tarefas do banco: {self.work_db}...")
         
         try:
-            # --- MUDANÇA AQUI: De 'Not started' para 'Não iniciado' ---
             response = self.client_work.databases.query(
                 database_id=self.work_db,
                 filter={
                     "property": "Status",
                     "status": {
-                        "equals": "Não iniciado" # <--- Agora bate com o print!
+                        "equals": "Não iniciado"
                     }
                 }
             )
@@ -82,38 +84,75 @@ class NotionManager:
             return []
 
     # ==========================================================
-    # ✍️ ESCRITA (POST) - ARGUS PLAYGROUND
+    # 🔍 VERIFICAÇÃO (CHECK) - EVITAR DUPLICIDADE
+    # ==========================================================
+    def check_existing_plan(self, task_title):
+        """Verifica se já existe um plano criado para essa tarefa no Playground."""
+        if not self.client_play: return False
+        
+        # O padrão de nome que usamos é "Plano: [Nome da Tarefa]"
+        plan_title = f"Plano: {task_title}"
+        
+        try:
+            response = self.client_play.databases.query(
+                database_id=self.play_db,
+                filter={
+                    "property": "Name",
+                    "title": {
+                        "equals": plan_title
+                    }
+                }
+            )
+            # Se a lista de resultados não for vazia, significa que já existe
+            exists = len(response["results"]) > 0
+            if exists:
+                print(f"⚠️ [NOTION] Plano duplicado encontrado: {plan_title}")
+            return exists
+            
+        except Exception as e:
+            print(f"⚠️ Erro ao checar duplicidade: {e}")
+            return False
+
+    # ==========================================================
+    # ✍️ ESCRITA (POST) - ARGUS PLAYGROUND (COM CHUNKING)
     # ==========================================================
     def create_insight(self, title, content, tags=None):
         """
-        Cria uma página de 'Sugestão Técnica' no seu banco pessoal.
-        Usado pelo Architect/Strategist.
+        Cria uma página de 'Sugestão Técnica'.
+        Fatia o conteúdo em blocos de 2000 caracteres para evitar erro de limite da API.
         """
         if not self.client_play: return None
         
         print(f"💡 [NOTION] Publicando Insight: {title}...")
         
         try:
-            # Monta os blocos de texto da página
+            # 1. Cria o bloco do Título
             children_blocks = [
                 {
                     "object": "block",
                     "type": "heading_2",
                     "heading_2": {"rich_text": [{"text": {"content": "Análise Técnica"}}]}
-                },
-                {
-                    "object": "block",
-                    "type": "paragraph",
-                    "paragraph": {"rich_text": [{"text": {"content": content}}]}
                 }
             ]
 
-            # Cria a página no banco de dados
+            # 2. FATIADOR DE TEXTO (Chunking)
+            # O Notion aceita no máx 2000 chars por bloco. Vamos dividir o content.
+            chunk_size = 2000
+            chunks = [content[i:i+chunk_size] for i in range(0, len(content), chunk_size)]
+
+            for chunk in chunks:
+                children_blocks.append({
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {"rich_text": [{"text": {"content": chunk}}]}
+                })
+
+            # 3. Cria a página no banco de dados
             new_page = self.client_play.pages.create(
                 parent={"database_id": self.play_db},
                 properties={
                     "Name": {"title": [{"text": {"content": title}}]},
-                    "Tipo": {"select": {"name": "Insight"}}, # <--- Cria uma tag automática
+                    "Tipo": {"select": {"name": "Insight"}},
                     "Data": {"date": {"start": datetime.now().isoformat()}}
                 },
                 children=children_blocks
@@ -154,7 +193,7 @@ class NotionManager:
             print(f"❌ Erro ao criar Daily Log: {e}")
 
 # ==========================================
-# ÁREA DE TESTES (DEBUG DE INTROSPECÇÃO)
+# ÁREA DE TESTES
 # ==========================================
 if __name__ == "__main__":
     from dotenv import load_dotenv
@@ -170,4 +209,3 @@ if __name__ == "__main__":
             print(f"🔹 [{t['priority']}] {t['title']} (Status: {t['status']})")
     else:
         print("⚠️ Nenhuma tarefa encontrada com status 'Not started'.")
-        print("DICA: Se tiver tarefas a fazer, tente mudar o filtro no código para 'Não iniciado' ou 'To-do'.")

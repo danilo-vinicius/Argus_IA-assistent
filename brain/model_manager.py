@@ -1,107 +1,81 @@
 import os
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
-from dotenv import load_dotenv
 
-load_dotenv()
-
-# ==============================================================================
-# 📋 ROSTER DE MODELOS GRATUITOS (OPENROUTER)
-# ==============================================================================
-# Ordem de prioridade: Tenta o primeiro, se falhar, tenta o próximo.
-# Todos abaixo possuem tier "free" no OpenRouter.
-
+# --- LISTA DE PRIORIDADE (ROSTER) ---
+# Copiado da sua lista de disponíveis. 
+# O sistema tentará um por um até conseguir.
 MODEL_ROSTER = [
-    # 1. Gemini 1.5 Flash 8B (Versão leve, cota separada da versão Pro/Exp)
-    "nvidia/nemotron-3-nano-30b-a3b:free", 
-    
-    # 2. Mistral Nemo (Muito estável e rápido)
-    "liquid/lfm-2.5-1.2b-thinking:free",
-    
-    # 3. Qwen 2.5 7B (Modelo chinês excelente para código e lógica)
-    "qwen/qwen-2.5-7b-instruct:free",
-    
-    # 4. Microsoft Phi-3 (Modelo pequeno da Microsoft, quase sempre livre)
-    "microsoft/phi-3-medium-128k-instruct:free",
-    
-    # 5. Liquid LFM (Modelo novo, pouca gente usa, então está livre)
-    "liquid/lfm-40b:free"
+    "models/gemini-2.5-flash",                  # 1. O mais novo e rápido
+    "models/gemini-2.0-flash",                  # 2. Estável anterior
+    "models/gemini-2.0-flash-lite-preview-02-05", # 3. Versão leve (cota separada)
+    "models/gemini-flash-lite-latest",          # 4. Outra versão leve
+    "models/gemini-2.0-flash-exp",              # 5. Experimental (às vezes instável, mas bom)
+    "models/gemini-pro-latest"                  # 6. Último recurso (Lento mas funciona)
 ]
 
-# Modelos que ACEITAM IMAGEM (Vision Capable)
-# Se o usuário mandar print, só podemos usar estes.
-VISION_MODELS = [
-    "google/gemini-2.0-flash-lite-preview-02-05:free",
-    "google/gemini-2.0-flash-exp:free"
-]
-
-def get_fallback_model(callbacks=None, temperature=0.7):
+def get_fallback_model(callbacks=[]):
     """
-    Retorna uma função executora que gerencia a conexão com o OpenRouter
-    e faz o fallback automático entre modelos em caso de erro.
+    Gerenciador de Modelos com Sistema de Cascata.
+    Tenta invocar os modelos da lista em ordem. Se um falhar (Cota/404), tenta o próximo.
     """
+    api_key = os.getenv("GOOGLE_API_KEY")
     
-    api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
-        print("❌ ERRO: OPENROUTER_API_KEY não encontrada no .env")
+        print("❌ ERRO CRÍTICO: 'GOOGLE_API_KEY' não encontrada no .env")
         return None
 
-    def generate_response(prompt_input, image_data=None):
-        """
-        Executa a geração de texto ou análise de imagem.
-        """
-        
-        # 1. Monta a mensagem
-        message_content = [{"type": "text", "text": prompt_input}]
-        
-        # Se tiver imagem, adiciona ao payload
-        if image_data:
-            message_content.append({
-                "type": "image_url",
-                "image_url": {"url": f"data:image/png;base64,{image_data}"}
-            })
-            # Filtra apenas modelos que enxergam
-            current_roster = [m for m in MODEL_ROSTER if m in VISION_MODELS]
-            print("👁️ Modo Visão Ativado: Filtrando modelos multimodais...")
-        else:
-            # Texto puro: usa todos
-            current_roster = MODEL_ROSTER
-
-        # 2. Loop de Tentativas (Fallback)
+    # Função Wrapper que será chamada pelo app.py
+    def gemini_wrapper(prompt, image_data=None):
         last_error = None
         
-        for model_name in current_roster:
+        # --- LOOP DE TENTATIVAS (CASCATA) ---
+        for model_name in MODEL_ROSTER:
             try:
-                print(f"🔄 Conectando OpenRouter: {model_name}...")
+                # print(f"🔄 Tentando conectar no modelo: {model_name}...")
                 
-                llm = ChatOpenAI(
+                # 1. Configura o modelo da vez
+                llm = ChatGoogleGenerativeAI(
                     model=model_name,
-                    openai_api_key=api_key,
-                    openai_api_base="https://openrouter.ai/api/v1",
-                    temperature=temperature,
-                    streaming=True,
+                    google_api_key=api_key,
+                    temperature=0.7,
+                    streaming=True, # Essencial para voz/chat fluir
                     callbacks=callbacks,
-                    # Headers exigidos pelo OpenRouter para ranking
-                    default_headers={
-                        "HTTP-Referer": os.getenv("YOUR_SITE_URL", "http://localhost:5000"),
-                        "X-Title": os.getenv("YOUR_APP_NAME", "Argus Local")
-                    }
+                    convert_system_message_to_human=True
                 )
                 
-                messages = [HumanMessage(content=message_content)]
-                response = llm.invoke(messages)
+                # 2. Prepara a mensagem (Texto ou Multimodal)
+                if image_data:
+                    print(f"📸 Enviando imagem para {model_name}...")
+                    message = HumanMessage(
+                        content=[
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}
+                            }
+                        ]
+                    )
+                    # Tenta invocar (Aqui é onde o erro acontece se falhar)
+                    return llm.invoke([message])
                 
-                print(f"✅ Sucesso com: {model_name}")
-                return response
+                else:
+                    # Modo Texto Normal
+                    return llm.invoke(prompt)
 
             except Exception as e:
-                error_msg = str(e)
-                print(f"⚠️ Falha no {model_name}: {error_msg}")
-                last_error = error_msg
-                # Continua para o próximo modelo da lista
-                continue
+                # Se deu erro (404, 429, etc), captura e tenta o próximo
+                error_str = str(e)
+                print(f"⚠️ Falha no {model_name}: {error_str.split(':')[0]}") # Printa só o resumo do erro
+                last_error = error_str
+                continue # Pula para o próximo modelo da lista
         
-        # Se saiu do loop, tudo falhou
-        return f"Desculpe, chefe. Todos os satélites de IA estão fora do ar. Erro final: {last_error}"
+        # --- FIM DO LOOP (SE TODOS FALHAREM) ---
+        print("❌ TODOS OS MODELOS FALHARAM.")
+        
+        class FakeResponse:
+            content = f"Desculpe, chefe. Todos os sistemas neurais estão fora do ar. Erro final: {last_error}"
+        return FakeResponse()
 
-    return generate_response
+    # Retorna a função wrapper pronta para uso
+    return gemini_wrapper
